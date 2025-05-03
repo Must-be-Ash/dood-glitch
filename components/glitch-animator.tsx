@@ -6,26 +6,47 @@ import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Slider } from "@/components/ui/slider"
-import { Upload, Zap, Layers, ScanLine, Tv, Loader2, Play, Pause, Grid, Box } from "lucide-react"
+import { Upload, Zap, Layers, ScanLine, Tv, Loader2, Play, Pause, Grid, Box, Download, Repeat, Square } from "lucide-react"
+import { recordElement, convertVideoToGif } from "../lib/screen-recorder"
 
 export function GlitchAnimator() {
   const [image1, setImage1] = useState<string | null>("/light.jpeg")
   const [image2, setImage2] = useState<string | null>("/dark.jpeg")
   const [isGenerating, setIsGenerating] = useState(false)
-  const [glitchIntensity, setGlitchIntensity] = useState(30)
-  const [frameCount, setFrameCount] = useState(20)
-  const [glitchSpeed, setGlitchSpeed] = useState(170)
+  const [glitchIntensity, setGlitchIntensity] = useState(67)
+  const [frameCount, setFrameCount] = useState(24)
+  const [glitchSpeed, setGlitchSpeed] = useState(110)
   const [isPlaying, setIsPlaying] = useState(false)
+  const [isRecording, setIsRecording] = useState(false)
+  const [conversionProgress, setConversionProgress] = useState(0)
 
   // Layer swapping state
   const [isLayerSwapped, setIsLayerSwapped] = useState(false)
   const [swapEndTime, setSwapEndTime] = useState(0)
 
   // New controls for layer boxes
-  const [layer2Frequency, setLayer2Frequency] = useState(3)
-  const [layer2Size, setLayer2Size] = useState(42)
+  const [layer2Frequency, setLayer2Frequency] = useState(5)
+  const [layer2Size, setLayer2Size] = useState(33)
   const [layer3Frequency, setLayer3Frequency] = useState(1)
-  const [layer3Size, setLayer3Size] = useState(7)
+  const [layer3Size, setLayer3Size] = useState(8)
+  
+  // Layer swap controls
+  const [layerSwapFrequency, setLayerSwapFrequency] = useState(10) // % chance of swap per frame
+  const [layerSwapDuration, setLayerSwapDuration] = useState(2000) // Duration in ms
+  
+  // RGB glitch rectangles controls
+  const [rgbGlitchCount, setRgbGlitchCount] = useState(20) // Number of RGB glitch elements
+  
+  // Persistent RGB glitches reference
+  const persistentGlitchesRef = useRef<Array<{
+    isHorizontal: boolean,
+    width: number,
+    height: number,
+    x: number,
+    y: number,
+    lifespan: number,
+    currentLife: number
+  }>>([]);
 
   const previewCanvasRef = useRef<HTMLCanvasElement>(null)
   const animationFrameRef = useRef<number>(0)
@@ -113,13 +134,13 @@ export function GlitchAnimator() {
       }
       
       // Determine if we should start a new layer swap (only if not already in a swap)
-      if (!localLayerSwapped && Math.random() < 0.001) { // Increased to 0.1% chance of swap
+      if (!localLayerSwapped && Math.random() < layerSwapFrequency / 100) { // Use layerSwapFrequency control
         localLayerSwapped = true;
-        localSwapEndTime = currentTime + 2000;
+        localSwapEndTime = currentTime + layerSwapDuration;
         
         // Update the state for future frames
         setIsLayerSwapped(true);
-        setSwapEndTime(currentTime + 2000);
+        setSwapEndTime(currentTime + layerSwapDuration);
         
         console.log("LAYER SWAP ACTIVATED at", new Date().toLocaleTimeString());
       }
@@ -395,6 +416,123 @@ export function GlitchAnimator() {
         // Clean up
         glitchLayer.remove()
       }
+
+      // STEP 4: Add RGB glitch rectangles (thin white glowing bars)
+      const rgbGlitchLayer = document.createElement('canvas')
+      rgbGlitchLayer.width = canvas.width
+      rgbGlitchLayer.height = canvas.height
+      const rgbGlitchCtx = rgbGlitchLayer.getContext('2d', { willReadFrequently: true })
+      
+      if (rgbGlitchCtx) {
+        // Clear the layer
+        rgbGlitchCtx.clearRect(0, 0, canvas.width, canvas.height)
+        
+        // Manage persistent glitches
+        let persistentGlitches = persistentGlitchesRef.current;
+        
+        // Update existing glitches' lifespans
+        persistentGlitches = persistentGlitches.filter(glitch => {
+          // Randomly kill some glitches early for more unpredictable movement
+          if (Math.random() < 0.1) {
+            return false; // 10% chance to remove regardless of remaining life
+          }
+          
+          glitch.currentLife--;
+          
+          // Small random movement for some glitches (like flies)
+          if (Math.random() < 0.3) {
+            // Random direction and distance
+            glitch.x += (Math.random() - 0.5) * 15;
+            glitch.y += (Math.random() - 0.5) * 8;
+            
+            // Ensure they stay in canvas bounds
+            glitch.x = Math.max(0, Math.min(canvas.width - glitch.width, glitch.x));
+            glitch.y = Math.max(0, Math.min(canvas.height - glitch.height, glitch.y));
+          }
+          
+          return glitch.currentLife > 0;
+        });
+        
+        // Add new glitches if needed - make appearance more random
+        if (Math.random() < 0.25) { // 25% chance per frame to consider adding
+          // Add 1-3 glitches at once sometimes for burst effects
+          const glitchesToAdd = Math.random() < 0.7 ? 1 : Math.random() < 0.9 ? 2 : 3;
+          
+          for (let i = 0; i < glitchesToAdd; i++) {
+            // Only add if we're below the maximum
+            if (persistentGlitches.length < rgbGlitchCount * 1.5) {
+              // Create new glitch
+              const isHorizontal = true; // Force horizontal to match screenshot
+              
+              // More variance in size for diversity
+              persistentGlitches.push({
+                isHorizontal,
+                width: 80 + Math.random() * 80, // More size variation
+                height: 18 + Math.random() * 12,
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                lifespan: 2 + Math.floor(Math.random() * 8), // Shorter but varied lifespans (2-10 frames)
+                currentLife: 2 + Math.floor(Math.random() * 8)
+              });
+            }
+          }
+        }
+        
+        // Store updated glitches
+        persistentGlitchesRef.current = persistentGlitches;
+        
+        // Render all persistent glitches
+        persistentGlitches.forEach(glitch => {
+          const { isHorizontal, width, height, x, y } = glitch;
+          
+          // Glow effect using multiple layers for maximum brightness
+          rgbGlitchCtx.save();
+          
+          // Create white core with vertical color gradient
+          rgbGlitchCtx.fillStyle = 'rgba(255, 255, 255, 1)'; // Full opacity white
+          
+          // Draw rectangle with more rounded corners
+          const cornerRadius = 6; // Increased corner radius (was 3)
+          rgbGlitchCtx.beginPath();
+          rgbGlitchCtx.moveTo(x + cornerRadius, y);
+          rgbGlitchCtx.lineTo(x + width - cornerRadius, y);
+          rgbGlitchCtx.quadraticCurveTo(x + width, y, x + width, y + cornerRadius);
+          rgbGlitchCtx.lineTo(x + width, y + height - cornerRadius);
+          rgbGlitchCtx.quadraticCurveTo(x + width, y + height, x + width - cornerRadius, y + height);
+          rgbGlitchCtx.lineTo(x + cornerRadius, y + height);
+          rgbGlitchCtx.quadraticCurveTo(x, y + height, x, y + height - cornerRadius);
+          rgbGlitchCtx.lineTo(x, y + cornerRadius);
+          rgbGlitchCtx.quadraticCurveTo(x, y, x + cornerRadius, y);
+          rgbGlitchCtx.closePath();
+          
+          // Create main white glow
+          rgbGlitchCtx.shadowColor = 'rgba(255, 255, 255, 1)';
+          rgbGlitchCtx.shadowBlur = 8;
+          rgbGlitchCtx.fill();
+          
+          // Add blue glow on top
+          rgbGlitchCtx.shadowColor = 'rgba(100, 180, 255, 0.9)'; // Bright blue
+          rgbGlitchCtx.shadowOffsetY = -5; // Position above
+          rgbGlitchCtx.shadowBlur = 10;
+          rgbGlitchCtx.fill();
+          
+          // Add red/orange glow on bottom
+          rgbGlitchCtx.shadowColor = 'rgba(255, 120, 50, 0.9)'; // Bright orange-red
+          rgbGlitchCtx.shadowOffsetY = 5; // Position below
+          rgbGlitchCtx.shadowBlur = 10;
+          rgbGlitchCtx.fill();
+          
+          rgbGlitchCtx.restore();
+        });
+        
+        // Composite the RGB glitch layer onto the main canvas with screen blend mode
+        ctx.globalCompositeOperation = 'screen';
+        ctx.drawImage(rgbGlitchLayer, 0, 0);
+        ctx.globalCompositeOperation = 'source-over'; // Reset blend mode
+        
+        // Clean up
+        rgbGlitchLayer.remove();
+      }
     }
 
     // Wait for images to load
@@ -421,7 +559,44 @@ export function GlitchAnimator() {
         cancelAnimationFrame(animationFrameRef.current)
       }
     }
-  }, [image1, image2, isPlaying, glitchIntensity, glitchSpeed, layer2Frequency, layer2Size, layer3Frequency, layer3Size])
+  }, [image1, image2, isPlaying, glitchIntensity, glitchSpeed, layer2Frequency, layer2Size, layer3Frequency, layer3Size, layerSwapFrequency, layerSwapDuration, rgbGlitchCount])
+
+  const handleRecord = async () => {
+    if (!previewCanvasRef.current) return;
+    
+    try {
+      setIsRecording(true);
+      setIsPlaying(true); // Start playing animation
+      
+      // Wait a moment for animation to start
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Record for 3 seconds
+      const videoBlob = await recordElement(previewCanvasRef.current);
+      
+      // Convert to GIF
+      setConversionProgress(0);
+      const gifBlob = await convertVideoToGif(videoBlob, (progress) => {
+        setConversionProgress(progress);
+      });
+      
+      // Create download link
+      const url = URL.createObjectURL(gifBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'glitch-animation.gif';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+    } catch (err) {
+      console.error('Failed to record:', err);
+    } finally {
+      setIsRecording(false);
+      setConversionProgress(0);
+    }
+  };
 
   return (
     <div className="w-full max-w-4xl mx-auto">
@@ -630,7 +805,7 @@ export function GlitchAnimator() {
             step={1}
             onValueChange={(value) => setLayer3Size(value[0])}
           />
-      </div>
+        </div>
 
         <div className="space-y-2">
           <div className="flex justify-between">
@@ -647,6 +822,54 @@ export function GlitchAnimator() {
             onValueChange={(value) => setLayer3Frequency(value[0])}
           />
         </div>
+        
+        <div className="space-y-2">
+          <div className="flex justify-between">
+            <label className="text-sm font-medium flex items-center gap-2">
+              <Repeat className="w-4 h-4" /> Layer Swap Frequency
+            </label>
+            <span className="text-sm text-gray-500">{layerSwapFrequency}%</span>
+          </div>
+          <Slider
+            value={[layerSwapFrequency]}
+            min={0}
+            max={10}
+            step={1}
+            onValueChange={(value) => setLayerSwapFrequency(value[0])}
+          />
+        </div>
+        
+        <div className="space-y-2">
+          <div className="flex justify-between">
+            <label className="text-sm font-medium flex items-center gap-2">
+              <Repeat className="w-4 h-4" /> Layer Swap Duration
+            </label>
+            <span className="text-sm text-gray-500">{layerSwapDuration}ms</span>
+          </div>
+          <Slider
+            value={[layerSwapDuration]}
+            min={500}
+            max={5000}
+            step={500}
+            onValueChange={(value) => setLayerSwapDuration(value[0])}
+          />
+        </div>
+        
+        <div className="space-y-2">
+          <div className="flex justify-between">
+            <label className="text-sm font-medium flex items-center gap-2">
+              <Square className="w-4 h-4" /> RGB Glitch Count
+            </label>
+            <span className="text-sm text-gray-500">{rgbGlitchCount}</span>
+          </div>
+          <Slider
+            value={[rgbGlitchCount]}
+            min={0}
+            max={20}
+            step={1}
+            onValueChange={(value) => setRgbGlitchCount(value[0])}
+          />
+        </div>
       </div>
 
       {image1 && image2 && (
@@ -656,15 +879,38 @@ export function GlitchAnimator() {
               ref={previewCanvasRef}
               className="w-full h-full object-contain"
                 />
-            <Button
-              className="absolute bottom-4 right-4"
-              onClick={() => setIsPlaying(!isPlaying)}
-              size="icon"
-              variant="secondary"
-            >
-              {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
+            <div className="absolute bottom-4 right-4 flex gap-2">
+              <Button
+                onClick={() => setIsPlaying(!isPlaying)}
+                size="icon"
+                variant="secondary"
+              >
+                {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
+              </Button>
+              <Button
+                onClick={handleRecord}
+                size="icon"
+                variant="secondary"
+                disabled={isRecording}
+              >
+                {isRecording ? (
+                  <div className="relative">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    {conversionProgress > 0 && (
+                      <div 
+                        className="absolute inset-0 flex items-center justify-center text-[10px] font-bold"
+                        style={{ color: conversionProgress >= 1 ? '#22c55e' : undefined }}
+                      >
+                        {Math.round(conversionProgress * 100)}%
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <Download className="h-5 w-5" />
+                )}
               </Button>
             </div>
+          </div>
         </div>
       )}
     </div>

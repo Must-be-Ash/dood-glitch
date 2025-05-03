@@ -35,7 +35,7 @@ const GlitchText: FC<GlitchTextProps> = ({
         } as CSSProperties
       }
       className={cn(
-        "inline-block bg-clip-text text-transparent font-bold text-4xl tracking-tight",
+        "inline-block bg-clip-text text-transparent font-bold tracking-tight",
         !disabled && "animate-shine",
         className
       )}

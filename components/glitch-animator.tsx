@@ -6,16 +6,26 @@ import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Slider } from "@/components/ui/slider"
-import { Upload, Download, Zap, Layers, ScanLine, Tv, Loader2, Play, Pause } from "lucide-react"
+import { Upload, Zap, Layers, ScanLine, Tv, Loader2, Play, Pause, Grid, Box } from "lucide-react"
 
 export function GlitchAnimator() {
   const [image1, setImage1] = useState<string | null>("/light.jpeg")
   const [image2, setImage2] = useState<string | null>("/dark.jpeg")
   const [isGenerating, setIsGenerating] = useState(false)
-  const [glitchIntensity, setGlitchIntensity] = useState(50)
-  const [frameCount, setFrameCount] = useState(10)
-  const [glitchSpeed, setGlitchSpeed] = useState(100)
+  const [glitchIntensity, setGlitchIntensity] = useState(30)
+  const [frameCount, setFrameCount] = useState(20)
+  const [glitchSpeed, setGlitchSpeed] = useState(170)
   const [isPlaying, setIsPlaying] = useState(false)
+
+  // Layer swapping state
+  const [isLayerSwapped, setIsLayerSwapped] = useState(false)
+  const [swapEndTime, setSwapEndTime] = useState(0)
+
+  // New controls for layer boxes
+  const [layer2Frequency, setLayer2Frequency] = useState(3)
+  const [layer2Size, setLayer2Size] = useState(42)
+  const [layer3Frequency, setLayer3Frequency] = useState(1)
+  const [layer3Size, setLayer3Size] = useState(7)
 
   const previewCanvasRef = useRef<HTMLCanvasElement>(null)
   const animationFrameRef = useRef<number>(0)
@@ -89,10 +99,43 @@ export function GlitchAnimator() {
         canvas.height = img1.height
       }
 
+      // Layer swapping logic
+      const currentTime = Date.now()
+      
+      // Create local variables to manage swapping within this frame
+      let localLayerSwapped = isLayerSwapped;
+      let localSwapEndTime = swapEndTime;
+      
+      // If swap has ended, reset state
+      if (localLayerSwapped && currentTime > localSwapEndTime) {
+        localLayerSwapped = false;
+        setIsLayerSwapped(false);
+      }
+      
+      // Determine if we should start a new layer swap (only if not already in a swap)
+      if (!localLayerSwapped && Math.random() < 0.001) { // Increased to 0.1% chance of swap
+        localLayerSwapped = true;
+        localSwapEndTime = currentTime + 2000;
+        
+        // Update the state for future frames
+        setIsLayerSwapped(true);
+        setSwapEndTime(currentTime + 2000);
+        
+        console.log("LAYER SWAP ACTIVATED at", new Date().toLocaleTimeString());
+      }
+      
+      // Use our local variables for this frame's rendering
+
       // STEP 1: Draw first image as base - maintaining aspect ratio
       ctx.fillStyle = '#fff'
       ctx.fillRect(0, 0, canvas.width, canvas.height)
-      ctx.drawImage(img1, 0, 0, canvas.width, canvas.height)
+      
+      // Select which image to use as base based on swap state
+      const baseImage = localLayerSwapped ? img2 : img1;
+      const cutoutImage = localLayerSwapped ? img1 : img2;
+
+        // Draw the base image
+        ctx.drawImage(baseImage, 0, 0, canvas.width, canvas.height)
 
       // Store the base layer for reference
       const baseLayer = ctx.getImageData(0, 0, canvas.width, canvas.height)
@@ -103,17 +146,18 @@ export function GlitchAnimator() {
       secondLayer.height = canvas.height
       const secondCtx = secondLayer.getContext('2d', { willReadFrequently: true })
       if (secondCtx) {
-        // Draw second image
-        secondCtx.drawImage(img2, 0, 0, canvas.width, canvas.height)
+        // Draw second image (which may be img1 or img2 depending on swap)
+        secondCtx.drawImage(cutoutImage, 0, 0, canvas.width, canvas.height)
         
-        // Create random holes in the second layer (4-7 holes)
+        // Create random holes in the second layer - Use layer2Frequency control
         secondCtx.globalCompositeOperation = 'destination-out'
-        const holeCount = 4 + Math.floor(Math.random() * 4)
+        const holeCount = Math.max(1, Math.floor(layer2Frequency / 2) + Math.floor(Math.random() * 3))
         
         for (let h = 0; h < holeCount; h++) {
           // Create random sized and positioned rounded rectangles with maximum limits
-          const maxWidth = Math.min(canvas.width * 0.3, 150) // Max 30% of width or 150px
-          const maxHeight = Math.min(canvas.height * 0.3, 120) // Max 30% of height or 120px
+          // Use layer2Size control for max dimensions
+          const maxWidth = Math.min(canvas.width * (layer2Size / 100), canvas.width * 0.5)
+          const maxHeight = Math.min(canvas.height * (layer2Size / 100), canvas.height * 0.5)
           const rectWidth = 30 + Math.random() * (maxWidth - 30) // Between 30px and max
           const rectHeight = 20 + Math.random() * (maxHeight - 20) // Between 20px and max
           const x = Math.random() * (canvas.width - rectWidth)
@@ -153,11 +197,11 @@ export function GlitchAnimator() {
       if (glitchCtx) {
         // Clear the glitch layer
         glitchCtx.clearRect(0, 0, canvas.width, canvas.height)
-        
-        // Add random TV test pattern blocks - SMALLER SIZE, SLIGHTLY MORE, MORE RANDOM
+
+        // Add random TV test pattern blocks - Use layer3Frequency control
         // Use a random factor to make their appearance more unpredictable
         const randomFactor = Math.random() < 0.3 ? 0 : 1 // 30% chance of no blocks at all
-        const blockCount = randomFactor * (Math.floor(intensity * 2) + 2) // 2-4 blocks when they appear
+        const blockCount = randomFactor * (layer3Frequency + Math.floor(Math.random() * 2))
         
         const tvColors = [
           'rgba(255,255,255,0.25)', // White - much more transparent (0.7 -> 0.25)
@@ -170,9 +214,9 @@ export function GlitchAnimator() {
         ]
         
         for (let i = 0; i < blockCount; i++) {
-          // SMALLER SIZES - max 20% of dimension instead of 35-45%
-          const blockWidth = Math.floor(Math.random() * canvas.width * 0.2) + 25 // Smaller blocks
-          const blockHeight = Math.floor(Math.random() * canvas.height * 0.15) + 20 // Smaller blocks
+          // Use layer3Size control
+          const blockWidth = Math.floor(Math.random() * canvas.width * (layer3Size / 100)) + 25
+          const blockHeight = Math.floor(Math.random() * canvas.height * (layer3Size / 100)) + 20
           
           // Position can be partially off-screen
           const blockX = Math.floor(Math.random() * canvas.width * 1.2) - canvas.width * 0.1
@@ -340,7 +384,7 @@ export function GlitchAnimator() {
           
           // Restore the combined layers (layers 1+2)
           ctx.putImageData(combinedLayers, 0, 0)
-          
+
           // Draw the glitch overlay with its cutouts
           ctx.drawImage(cutoutCanvas, 0, 0)
           
@@ -377,7 +421,7 @@ export function GlitchAnimator() {
         cancelAnimationFrame(animationFrameRef.current)
       }
     }
-  }, [image1, image2, isPlaying, glitchIntensity, glitchSpeed])
+  }, [image1, image2, isPlaying, glitchIntensity, glitchSpeed, layer2Frequency, layer2Size, layer3Frequency, layer3Size])
 
   return (
     <div className="w-full max-w-4xl mx-auto">
@@ -391,7 +435,7 @@ export function GlitchAnimator() {
                 src={image1 || "/placeholder.svg"}
                 alt="First image"
                   className="max-w-full max-h-full object-contain absolute inset-0 w-full h-full"
-                />
+              />
                 {/* Dark text overlay for light image with gradient background */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                   {/* Darker translucent overlay to improve text visibility */}
@@ -442,7 +486,7 @@ export function GlitchAnimator() {
                 src={image2 || "/placeholder.svg"}
                 alt="Second image"
                   className="max-w-full max-h-full object-contain absolute inset-0 w-full h-full"
-                />
+              />
                 {/* White text overlay for dark image with gradient background */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                   {/* Lighter translucent overlay to improve text visibility */}
@@ -474,8 +518,27 @@ export function GlitchAnimator() {
                 ×
               </Button>
             )}
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleImage2Upload}
+              className="absolute inset-0 opacity-0 cursor-pointer"
+              style={{ zIndex: 1 }}
+            />
           </CardContent>
         </Card>
+      </div>
+
+      <div className="flex justify-center mt-12 mb-6">
+        <Button
+          onClick={scrollToPreview}
+          disabled={!image1 || !image2}
+          className="w-full md:w-auto"
+          size="lg"
+        >
+          <Tv className="mr-2 h-4 w-4" />
+          Show Glitch Animation
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 gap-4 mb-6">
@@ -520,18 +583,70 @@ export function GlitchAnimator() {
             onValueChange={(value) => setGlitchSpeed(value[0])}
           />
         </div>
+        
+        <div className="space-y-2">
+          <div className="flex justify-between">
+            <label className="text-sm font-medium flex items-center gap-2">
+              <Box className="w-4 h-4" /> Rainbow Cutout Size
+            </label>
+            <span className="text-sm text-gray-500">{layer2Size}%</span>
+          </div>
+          <Slider
+            value={[layer2Size]}
+            min={10}
+            max={50}
+            step={1}
+            onValueChange={(value) => setLayer2Size(value[0])}
+          />
+        </div>
+        
+        <div className="space-y-2">
+          <div className="flex justify-between">
+            <label className="text-sm font-medium flex items-center gap-2">
+              <Grid className="w-4 h-4" /> Rainbow Cutout Frequency
+            </label>
+            <span className="text-sm text-gray-500">{layer2Frequency}</span>
+          </div>
+          <Slider
+            value={[layer2Frequency]}
+            min={1}
+            max={10}
+            step={1}
+            onValueChange={(value) => setLayer2Frequency(value[0])}
+          />
+        </div>
+        
+        <div className="space-y-2">
+          <div className="flex justify-between">
+            <label className="text-sm font-medium flex items-center gap-2">
+              <Box className="w-4 h-4" /> Glitch Size
+            </label>
+            <span className="text-sm text-gray-500">{layer3Size}%</span>
+          </div>
+          <Slider
+            value={[layer3Size]}
+            min={5}
+            max={40}
+            step={1}
+            onValueChange={(value) => setLayer3Size(value[0])}
+          />
       </div>
 
-      <div className="flex justify-center mb-8">
-        <Button
-          onClick={scrollToPreview}
-          disabled={!image1 || !image2}
-          className="w-full md:w-auto"
-          size="lg"
-        >
-              <Tv className="mr-2 h-4 w-4" />
-          Show Glitch Animation
-        </Button>
+        <div className="space-y-2">
+          <div className="flex justify-between">
+            <label className="text-sm font-medium flex items-center gap-2">
+              <Grid className="w-4 h-4" /> Glitch Frequency
+            </label>
+            <span className="text-sm text-gray-500">{layer3Frequency}</span>
+          </div>
+          <Slider
+            value={[layer3Frequency]}
+            min={0}
+            max={6}
+            step={1}
+            onValueChange={(value) => setLayer3Frequency(value[0])}
+          />
+        </div>
       </div>
 
       {image1 && image2 && (
@@ -540,7 +655,7 @@ export function GlitchAnimator() {
             <canvas
               ref={previewCanvasRef}
               className="w-full h-full object-contain"
-            />
+                />
             <Button
               className="absolute bottom-4 right-4"
               onClick={() => setIsPlaying(!isPlaying)}

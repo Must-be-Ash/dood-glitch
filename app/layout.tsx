@@ -6,9 +6,47 @@ import { ThemeProvider } from "@/components/theme-provider"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata = {
-  title: "Glitch Animation Generator",
-  description: "Create glitch animations by combining two images",
-    generator: 'v0.dev'
+  title: "Glitch Doods",
+  description: "Animate your doods",
+  keywords: "Animation, DOOD, Doodles, Darkmode Dood",
+  authors: [{ name: "@must_be_ash" }],
+  themeColor: "#000000",
+  icons: {
+    icon: [
+      { url: '/favicon.ico' },
+      { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
+      { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
+    ],
+    apple: [
+      { url: '/apple-touch-icon.png' },
+    ],
+    other: [
+      { 
+        rel: 'mask-icon', 
+        url: '/safari-pinned-tab.svg',
+        color: '#5bbad5'
+      },
+    ],
+  },
+  manifest: '/site.webmanifest',
+  openGraph: {
+    title: "Glitch Doods",
+    description: "Animate your doods",
+    url: "https://glitch-animation.vercel.app/",
+    siteName: "Glitch Doods",
+    images: [
+      {
+        url: "https://glitch-animation.vercel.app/og.png",
+      },
+    ],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Glitch Doods",
+    description: "Animate your doods",
+    images: ["https://glitch-animation.vercel.app/og.png"],
+  },
 }
 
 export default function RootLayout({

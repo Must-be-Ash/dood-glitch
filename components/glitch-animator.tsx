@@ -338,14 +338,15 @@ export function GlitchAnimator() {
   const randomBlocks = (ctx: CanvasRenderingContext2D, width: number, height: number, intensity: number) => {
     const blockCount = Math.floor(intensity * 12) // Reduced count for less chaos
     
-    // TV color palette - more subtle opacity
-    const colors = [
-      'rgba(255,0,0,0.2)',   // Red
-      'rgba(0,255,0,0.2)',   // Green
-      'rgba(0,0,255,0.2)',   // Blue
-      'rgba(255,255,0,0.2)', // Yellow
-      'rgba(0,255,255,0.2)', // Cyan
-      'rgba(255,0,255,0.2)'  // Magenta
+    // TV test pattern color stripes - classic TV colors
+    const tvColors = [
+      'rgba(255,255,255,0.2)', // White
+      'rgba(255,255,0,0.2)',   // Yellow
+      'rgba(0,255,255,0.2)',   // Cyan
+      'rgba(0,255,0,0.2)',     // Green
+      'rgba(255,0,255,0.2)',   // Magenta
+      'rgba(255,0,0,0.2)',     // Red
+      'rgba(0,0,255,0.2)'      // Blue
     ]
 
     for (let i = 0; i < blockCount; i++) {
@@ -356,10 +357,10 @@ export function GlitchAnimator() {
       const blockY = Math.floor(Math.random() * (height - blockHeight))
       const cornerRadius = Math.min(blockWidth, blockHeight) * 0.3 // Larger corner radius
 
-      // Save context for clipping
+      // Save context
       ctx.save()
 
-      // Create rounded rectangle path
+      // Create a clipping path with rounded rectangle
       ctx.beginPath()
       ctx.moveTo(blockX + cornerRadius, blockY)
       ctx.lineTo(blockX + blockWidth - cornerRadius, blockY)
@@ -371,21 +372,42 @@ export function GlitchAnimator() {
       ctx.lineTo(blockX, blockY + cornerRadius)
       ctx.quadraticCurveTo(blockX, blockY, blockX + cornerRadius, blockY)
       ctx.closePath()
+      ctx.clip() // Clip to the rounded rectangle shape
 
-      // Create color overlay with less opacity
-      ctx.fillStyle = colors[Math.floor(Math.random() * colors.length)]
-      ctx.fill()
-
-      // Skip static noise - it's too chaotic
-
-      // Random horizontal shift - reduced to be more subtle
-      const shift = Math.floor((Math.random() - 0.5) * width * 0.05)
-      if (Math.abs(shift) > 2) {
-        const shiftData = ctx.getImageData(blockX, blockY, blockWidth, blockHeight)
-        ctx.putImageData(shiftData, blockX + shift, blockY)
+      // Draw horizontal color bars (TV test pattern style)
+      // Randomize the number of color bars and their order
+      const numBars = 3 + Math.floor(Math.random() * 5); // 3-7 color bars
+      const barHeight = blockHeight / numBars;
+      
+      // Shuffle the colors randomly for each block
+      const shuffledColors = [...tvColors].sort(() => Math.random() - 0.5);
+      
+      // Draw the horizontal color bars
+      for (let j = 0; j < numBars; j++) {
+        const colorIndex = j % shuffledColors.length;
+        ctx.fillStyle = shuffledColors[colorIndex];
+        ctx.fillRect(blockX, blockY + (j * barHeight), blockWidth, barHeight);
       }
 
-      ctx.restore()
+      // Add a blending mode to let the underlying image show through
+      ctx.globalCompositeOperation = 'screen';
+      
+      // Add a slight shift effect to some bars
+      if (Math.random() > 0.5) {
+        const shiftY = blockY + Math.floor(Math.random() * blockHeight);
+        const shiftHeight = Math.min(blockHeight - (shiftY - blockY), barHeight);
+        const shiftAmount = Math.floor(Math.random() * 15) - 7;
+        
+        // Get image data for the area to shift
+        const shiftData = ctx.getImageData(blockX, shiftY, blockWidth, shiftHeight);
+        // Clear the original area
+        ctx.clearRect(blockX, shiftY, blockWidth, shiftHeight);
+        // Draw the shifted data
+        ctx.putImageData(shiftData, blockX + shiftAmount, shiftY);
+      }
+      
+      // Restore context
+      ctx.restore();
     }
   }
 
@@ -435,7 +457,7 @@ export function GlitchAnimator() {
     document.body.removeChild(link)
   }
 
-  // Preview animation function
+  // Preview animation - update to use the new TV test pattern style
   const animate = (timestamp: number) => {
     if (!image1 || !image2 || !previewCanvasRef.current) return
 
@@ -501,24 +523,79 @@ export function GlitchAnimator() {
       }
       ctx.restore()
 
-      // Simplified and more subtle glitch effects
+      // Add TV test pattern colored blocks
+      ctx.save()
       const intensity = glitchIntensity / 100
+      const blockCount = Math.floor(intensity * 5)
+      const tvColors = [
+        'rgba(255,255,255,0.15)', // White
+        'rgba(255,255,0,0.15)',   // Yellow
+        'rgba(0,255,255,0.15)',   // Cyan
+        'rgba(0,255,0,0.15)',     // Green
+        'rgba(255,0,255,0.15)',   // Magenta
+        'rgba(255,0,0,0.15)',     // Red
+        'rgba(0,0,255,0.15)'      // Blue
+      ]
+      
+      for (let i = 0; i < blockCount; i++) {
+        const blockWidth = Math.floor(Math.random() * canvas.width * 0.25) + 40
+        const blockHeight = Math.floor(Math.random() * canvas.height * 0.15) + 30
+        const blockX = Math.floor(Math.random() * (canvas.width - blockWidth))
+        const blockY = Math.floor(Math.random() * (canvas.height - blockHeight))
+        const cornerRadius = Math.min(blockWidth, blockHeight) * 0.3
+        
+        // Create clipping path
+        ctx.save()
+        ctx.beginPath()
+        ctx.moveTo(blockX + cornerRadius, blockY)
+        ctx.lineTo(blockX + blockWidth - cornerRadius, blockY)
+        ctx.quadraticCurveTo(blockX + blockWidth, blockY, blockX + blockWidth, blockY + cornerRadius)
+        ctx.lineTo(blockX + blockWidth, blockY + blockHeight - cornerRadius)
+        ctx.quadraticCurveTo(blockX + blockWidth, blockY + blockHeight, blockX + blockWidth - cornerRadius, blockY + blockHeight)
+        ctx.lineTo(blockX + cornerRadius, blockY + blockHeight)
+        ctx.quadraticCurveTo(blockX, blockY + blockHeight, blockX, blockY + blockHeight - cornerRadius)
+        ctx.lineTo(blockX, blockY + cornerRadius)
+        ctx.quadraticCurveTo(blockX, blockY, blockX + cornerRadius, blockY)
+        ctx.closePath()
+        ctx.clip()
+        
+        // Draw horizontal color bars
+        const numBars = 3 + Math.floor(Math.random() * 5)
+        const barHeight = blockHeight / numBars
+        const shuffledColors = [...tvColors].sort(() => Math.random() - 0.5)
+        
+        for (let j = 0; j < numBars; j++) {
+          const colorIndex = j % shuffledColors.length
+          ctx.fillStyle = shuffledColors[colorIndex]
+          ctx.fillRect(blockX, blockY + (j * barHeight), blockWidth, barHeight)
+        }
+        
+        // Add slight shift effect
+        if (Math.random() > 0.7) {
+          const shiftY = blockY + Math.floor(Math.random() * blockHeight * 0.7)
+          const shiftHeight = Math.min(blockHeight * 0.3, barHeight)
+          const shiftAmount = Math.floor(Math.random() * 8) - 4
+          
+          const shiftData = ctx.getImageData(blockX, shiftY, blockWidth, shiftHeight)
+          ctx.clearRect(blockX, shiftY, blockWidth, shiftHeight)
+          ctx.putImageData(shiftData, blockX + shiftAmount, shiftY)
+        }
+        
+        ctx.restore()
+      }
       
       // More subtle RGB shift
-      ctx.save()
-      const shift = Math.floor(intensity * 6)
+      const shift = Math.floor(intensity * 5)
       if (shift > 0) {
-        ctx.globalAlpha = 0.3
         ctx.globalCompositeOperation = 'screen'
+        ctx.globalAlpha = 0.2
         ctx.drawImage(canvas, shift, 0)
         ctx.drawImage(canvas, -shift, 0)
       }
-      ctx.restore()
-
+      
       // Subtle scan lines
-      ctx.save()
       ctx.globalCompositeOperation = 'overlay'
-      ctx.globalAlpha = 0.2
+      ctx.globalAlpha = 0.1
       for (let y = 0; y < canvas.height; y += 4) {
         if (Math.random() < intensity * 0.2) {
           ctx.fillStyle = "rgba(0,0,0,0.1)"
@@ -526,36 +603,6 @@ export function GlitchAnimator() {
         }
       }
       ctx.restore()
-
-      // Random subtle blocks
-      if (Math.random() < intensity * 0.3) {
-        ctx.save()
-        const blocks = Math.floor(intensity * 3)
-        for (let i = 0; i < blocks; i++) {
-          const x = Math.random() * canvas.width
-          const y = Math.random() * canvas.height
-          const w = 40 + Math.random() * 100
-          const h = 30 + Math.random() * 60
-          const cornerRadius = Math.min(w, h) * 0.3
-
-          // Draw rounded rectangle
-          ctx.beginPath()
-          ctx.moveTo(x + cornerRadius, y)
-          ctx.lineTo(x + w - cornerRadius, y)
-          ctx.quadraticCurveTo(x + w, y, x + w, y + cornerRadius)
-          ctx.lineTo(x + w, y + h - cornerRadius)
-          ctx.quadraticCurveTo(x + w, y + h, x + w - cornerRadius, y + h)
-          ctx.lineTo(x + cornerRadius, y + h)
-          ctx.quadraticCurveTo(x, y + h, x, y + h - cornerRadius)
-          ctx.lineTo(x, y + cornerRadius)
-          ctx.quadraticCurveTo(x, y, x + cornerRadius, y)
-          ctx.closePath()
-
-          ctx.fillStyle = `rgba(${Math.floor(Math.random()*255)},${Math.floor(Math.random()*255)},${Math.floor(Math.random()*255)},0.2)`
-          ctx.fill()
-        }
-        ctx.restore()
-      }
     }
 
     // Wait for images to load

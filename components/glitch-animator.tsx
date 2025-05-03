@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Slider } from "@/components/ui/slider"
@@ -16,8 +16,12 @@ export function GlitchAnimator() {
   const [glitchIntensity, setGlitchIntensity] = useState(50)
   const [frameCount, setFrameCount] = useState(10)
   const [glitchSpeed, setGlitchSpeed] = useState(100)
+  const [isPlaying, setIsPlaying] = useState(false)
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const previewCanvasRef = useRef<HTMLCanvasElement>(null)
+  const animationFrameRef = useRef<number>(0)
+  const lastFrameTimeRef = useRef<number>(0)
   const image1Ref = useRef<HTMLImageElement>(null)
   const image2Ref = useRef<HTMLImageElement>(null)
 
@@ -67,135 +71,160 @@ export function GlitchAnimator() {
       // Load both images first
       const img1 = new Image()
       const img2 = new Image()
-      img1.crossOrigin = "anonymous"
-      img2.crossOrigin = "anonymous"
-      img1.src = image1
-      img2.src = image2
-
+      
       await Promise.all([
         new Promise((resolve, reject) => {
-          img1.onload = resolve
+          img1.onload = () => {
+            console.log("Image 1 loaded:", img1.width, "x", img1.height)
+            resolve(null)
+          }
           img1.onerror = () => reject(new Error("Failed to load first image"))
+          img1.src = image1
         }),
         new Promise((resolve, reject) => {
-          img2.onload = resolve
+          img2.onload = () => {
+            console.log("Image 2 loaded:", img2.width, "x", img2.height)
+            resolve(null)
+          }
           img2.onerror = () => reject(new Error("Failed to load second image"))
+          img2.src = image2
         }),
       ])
 
-      // Set canvas dimensions to match images
-      canvas.width = Math.max(img1.width, img2.width)
-      canvas.height = Math.max(img1.height, img2.height)
+      // Set canvas dimensions based on the first image to maintain its aspect ratio
+      const width = img1.width
+      const height = img1.height
+      canvas.width = width
+      canvas.height = height
+
+      console.log("Canvas size:", width, "x", height)
 
       // Create a GIF encoder
       const gif = new GIF({
-        workers: 1,
+        workers: 2,
         quality: 10,
-        width: canvas.width,
-        height: canvas.height,
+        width: width,
+        height: height,
         workerScript: "/gif.worker.js",
         debug: true,
-        dither: false, // Disable dithering for cleaner effect
-        transparent: null, // No transparency
+        repeat: 0,
+        background: '#fff',
+        transparent: null,
       })
 
       // Generate frames
       for (let i = 0; i < frameCount; i++) {
-        // Clear canvas
-        ctx.clearRect(0, 0, canvas.width, canvas.height)
+        console.log("Generating frame", i + 1, "of", frameCount)
+        
+        // Clear canvas with white background
+        ctx.fillStyle = '#fff'
+        ctx.fillRect(0, 0, width, height)
 
-        // Draw the first image as base layer
-        ctx.drawImage(img1, 0, 0, canvas.width, canvas.height)
+        // Draw the first image as base layer - maintaining aspect ratio
+        ctx.drawImage(img1, 0, 0, width, height)
 
-        // Create a temporary canvas for the second image
+        // Create a temporary canvas for compositing
         const tempCanvas = document.createElement('canvas')
-        tempCanvas.width = canvas.width
-        tempCanvas.height = canvas.height
+        tempCanvas.width = width
+        tempCanvas.height = height
         const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true })
         if (!tempCtx) continue
 
-        // Draw second image to temp canvas
-        tempCtx.drawImage(img2, 0, 0, canvas.width, canvas.height)
+        // Draw second image to temp canvas - scaled to match the first image dimensions
+        tempCtx.drawImage(img2, 0, 0, width, height)
 
-        // Create glitch mask on temp canvas
-        const maskCanvas = document.createElement('canvas')
-        maskCanvas.width = canvas.width
-        maskCanvas.height = canvas.height
-        const maskCtx = maskCanvas.getContext('2d', { willReadFrequently: true })
-        if (!maskCtx) continue
-
-        // Create dynamic reveal pattern
-        maskCtx.fillStyle = 'black'
-        maskCtx.fillRect(0, 0, canvas.width, canvas.height)
-        maskCtx.fillStyle = 'white'
+        // Create glitch mask with rounded rectangles
+        const revealCount = 3 + Math.floor(Math.random() * 3)
+        tempCtx.globalCompositeOperation = 'destination-out'
         
-        const revealCount = 8 + Math.floor(Math.random() * 5)
         for (let h = 0; h < revealCount; h++) {
-          const x = Math.random() * canvas.width
-          const y = Math.random() * canvas.height
-          const size = 30 + Math.random() * 100
+          const x = Math.random() * width
+          const y = Math.random() * height
+          const rectWidth = 50 + Math.random() * 150
+          const rectHeight = 40 + Math.random() * 100
+          const cornerRadius = Math.min(rectWidth, rectHeight) * 0.3
           
-          maskCtx.beginPath()
-          maskCtx.moveTo(x, y)
-          for (let a = 0; a < Math.PI * 2; a += Math.PI / 4) {
-            const radius = size * (0.5 + Math.random() * 0.5)
-            const px = x + Math.cos(a) * radius
-            const py = y + Math.sin(a) * radius
-            maskCtx.lineTo(px, py)
-          }
-          maskCtx.closePath()
-          maskCtx.fill()
+          // Draw rounded rectangle
+          tempCtx.beginPath()
+          tempCtx.moveTo(x + cornerRadius, y)
+          tempCtx.lineTo(x + rectWidth - cornerRadius, y)
+          tempCtx.quadraticCurveTo(x + rectWidth, y, x + rectWidth, y + cornerRadius)
+          tempCtx.lineTo(x + rectWidth, y + rectHeight - cornerRadius)
+          tempCtx.quadraticCurveTo(x + rectWidth, y + rectHeight, x + rectWidth - cornerRadius, y + rectHeight)
+          tempCtx.lineTo(x + cornerRadius, y + rectHeight)
+          tempCtx.quadraticCurveTo(x, y + rectHeight, x, y + rectHeight - cornerRadius)
+          tempCtx.lineTo(x, y + cornerRadius)
+          tempCtx.quadraticCurveTo(x, y, x + cornerRadius, y)
+          tempCtx.closePath()
+          tempCtx.fill()
         }
 
-        // Apply mask to second image
-        tempCtx.globalCompositeOperation = 'destination-in'
-        tempCtx.drawImage(maskCanvas, 0, 0)
-
         // Draw masked second image onto main canvas
-        ctx.globalAlpha = 0.8
+        ctx.globalAlpha = 0.85
         ctx.drawImage(tempCanvas, 0, 0)
         ctx.globalAlpha = 1.0
 
-        // Apply glitch effects
-        applyGlitchEffects(ctx, canvas.width, canvas.height, glitchIntensity / 100)
+        // Apply glitch effects - simplified to be less chaotic
+        applyGlitchEffects(ctx, width, height, glitchIntensity / 100)
+
+        // Create a new canvas for the final frame
+        const frameCanvas = document.createElement('canvas')
+        frameCanvas.width = width
+        frameCanvas.height = height
+        const frameCtx = frameCanvas.getContext('2d', { willReadFrequently: true })
+        if (!frameCtx) continue
+
+        // Copy the current frame to the new canvas
+        frameCtx.drawImage(canvas, 0, 0)
 
         // Add frame to GIF
-        gif.addFrame(canvas, { 
-          copy: true, 
+        gif.addFrame(frameCanvas, {
           delay: glitchSpeed,
-          dispose: 2 // Clear frame before drawing next one
+          copy: true,
+          dispose: 1
         })
+
+        // Clean up temporary canvases
+        tempCanvas.remove()
+        frameCanvas.remove()
+
+        console.log("Frame", i + 1, "added to GIF")
       }
 
-      // Render the GIF
-      gif.on("finished", (blob: Blob) => {
-        try {
-          // Create a temporary link and trigger download
+      // Add finished handler before rendering
+      gif.on('finished', function(blob) {
+        console.log("GIF generation finished, blob size:", blob.size, "bytes")
+        if (blob.size > 0) {
           const url = URL.createObjectURL(blob)
-          const tempLink = document.createElement('a')
-          tempLink.href = url
-          tempLink.download = 'glitch-animation.gif'
-          document.body.appendChild(tempLink)
-          tempLink.click()
-          document.body.removeChild(tempLink)
-          
-          // Clean up the blob URL after a short delay
-          setTimeout(() => {
-            URL.revokeObjectURL(url)
-          }, 100)
-
           setResultGif(url)
-          setIsGenerating(false)
-        } catch (error) {
-          console.error('Error saving GIF:', error)
+          
+          // Create download link
+          const a = document.createElement('a')
+          a.href = url
+          a.download = 'glitch-animation.gif'
+          document.body.appendChild(a)
+          a.click()
+          document.body.removeChild(a)
+          
+          // Cleanup
+          setTimeout(() => URL.revokeObjectURL(url), 1000)
+        } else {
+          console.error("Generated GIF has 0 bytes")
           setIsGenerating(false)
         }
       })
 
+      // Add error handler
+      gif.on('error', function(error) {
+        console.error("GIF generation error:", error)
+        setIsGenerating(false)
+      })
+
       console.log("Starting GIF render...")
       gif.render()
+
     } catch (error) {
-      console.error("Error generating glitch animation:", error)
+      console.error("Error in GIF generation:", error)
       setIsGenerating(false)
     }
   }
@@ -215,13 +244,13 @@ export function GlitchAnimator() {
     const imageData = tempCtx.getImageData(0, 0, width, height)
     const data = imageData.data
 
-    // RGB shift
-    rgbShift(data, width, height, intensity)
+    // RGB shift with increased intensity
+    rgbShift(data, width, height, intensity * 1.5)
 
-    // Scan lines
+    // TV-like scan lines
     scanLines(data, width, height, intensity)
 
-    // Noise
+    // CRT-like noise
     addNoise(data, width, height, intensity)
 
     // Put the modified image data back to temp canvas
@@ -229,14 +258,21 @@ export function GlitchAnimator() {
 
     // Apply the glitch overlay with transparency
     ctx.save()
-    ctx.globalAlpha = 0.7 // Make glitch effect partially transparent
+    ctx.globalAlpha = 0.85
     ctx.drawImage(tempCanvas, 0, 0)
     ctx.restore()
 
-    // Random blocks with reveal effect
-    if (Math.random() < intensity * 0.8) {
+    // Random colored blocks with TV-like distortion
+    if (Math.random() < intensity * 0.9) {
       randomBlocks(ctx, width, height, intensity)
     }
+
+    // Chromatic aberration effect
+    if (Math.random() < intensity * 0.7) {
+      chromaticAberration(ctx, width, height, intensity)
+    }
+
+    tempCanvas.remove()
   }
 
   const rgbShift = (data: Uint8ClampedArray, width: number, height: number, intensity: number) => {
@@ -264,18 +300,22 @@ export function GlitchAnimator() {
   }
 
   const scanLines = (data: Uint8ClampedArray, width: number, height: number, intensity: number) => {
-    const lineFrequency = Math.max(2, Math.floor(20 - intensity * 15))
-    const lineOpacity = intensity * 0.5
+    const lineFrequency = Math.max(2, Math.floor(15 - intensity * 10))
+    const lineOpacity = intensity * 0.7
 
     for (let y = 0; y < height; y++) {
       if (y % lineFrequency === 0) {
         for (let x = 0; x < width; x++) {
           const i = (y * width + x) * 4
+          
+          // Create more pronounced scan lines
+          const scanIntensity = Math.sin(y * 0.1) * 0.5 + 0.5
+          const darkness = lineOpacity * scanIntensity
 
           // Darken the scan line
-          data[i] = Math.floor(data[i] * (1 - lineOpacity))
-          data[i + 1] = Math.floor(data[i + 1] * (1 - lineOpacity))
-          data[i + 2] = Math.floor(data[i + 2] * (1 - lineOpacity))
+          data[i] = Math.floor(data[i] * (1 - darkness))
+          data[i + 1] = Math.floor(data[i + 1] * (1 - darkness))
+          data[i + 2] = Math.floor(data[i + 2] * (1 - darkness))
         }
       }
     }
@@ -296,40 +336,92 @@ export function GlitchAnimator() {
   }
 
   const randomBlocks = (ctx: CanvasRenderingContext2D, width: number, height: number, intensity: number) => {
-    const blockCount = Math.floor(intensity * 15) // Increased block count
+    const blockCount = Math.floor(intensity * 12) // Reduced count for less chaos
+    
+    // TV color palette - more subtle opacity
+    const colors = [
+      'rgba(255,0,0,0.2)',   // Red
+      'rgba(0,255,0,0.2)',   // Green
+      'rgba(0,0,255,0.2)',   // Blue
+      'rgba(255,255,0,0.2)', // Yellow
+      'rgba(0,255,255,0.2)', // Cyan
+      'rgba(255,0,255,0.2)'  // Magenta
+    ]
+
+    for (let i = 0; i < blockCount; i++) {
+      // Create rounded rectangle blocks
+      const blockWidth = Math.floor(Math.random() * width * 0.25) + 40
+      const blockHeight = Math.floor(Math.random() * height * 0.15) + 30
+      const blockX = Math.floor(Math.random() * (width - blockWidth))
+      const blockY = Math.floor(Math.random() * (height - blockHeight))
+      const cornerRadius = Math.min(blockWidth, blockHeight) * 0.3 // Larger corner radius
+
+      // Save context for clipping
+      ctx.save()
+
+      // Create rounded rectangle path
+      ctx.beginPath()
+      ctx.moveTo(blockX + cornerRadius, blockY)
+      ctx.lineTo(blockX + blockWidth - cornerRadius, blockY)
+      ctx.quadraticCurveTo(blockX + blockWidth, blockY, blockX + blockWidth, blockY + cornerRadius)
+      ctx.lineTo(blockX + blockWidth, blockY + blockHeight - cornerRadius)
+      ctx.quadraticCurveTo(blockX + blockWidth, blockY + blockHeight, blockX + blockWidth - cornerRadius, blockY + blockHeight)
+      ctx.lineTo(blockX + cornerRadius, blockY + blockHeight)
+      ctx.quadraticCurveTo(blockX, blockY + blockHeight, blockX, blockY + blockHeight - cornerRadius)
+      ctx.lineTo(blockX, blockY + cornerRadius)
+      ctx.quadraticCurveTo(blockX, blockY, blockX + cornerRadius, blockY)
+      ctx.closePath()
+
+      // Create color overlay with less opacity
+      ctx.fillStyle = colors[Math.floor(Math.random() * colors.length)]
+      ctx.fill()
+
+      // Skip static noise - it's too chaotic
+
+      // Random horizontal shift - reduced to be more subtle
+      const shift = Math.floor((Math.random() - 0.5) * width * 0.05)
+      if (Math.abs(shift) > 2) {
+        const shiftData = ctx.getImageData(blockX, blockY, blockWidth, blockHeight)
+        ctx.putImageData(shiftData, blockX + shift, blockY)
+      }
+
+      ctx.restore()
+    }
+  }
+
+  const chromaticAberration = (ctx: CanvasRenderingContext2D, width: number, height: number, intensity: number) => {
+    const offset = Math.floor(intensity * 10)
+    if (offset === 0) return
+
     const tempCanvas = document.createElement('canvas')
     tempCanvas.width = width
     tempCanvas.height = height
     const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true })
     if (!tempCtx) return
 
-    // Copy current state
+    // Copy original
     tempCtx.drawImage(ctx.canvas, 0, 0)
 
-    for (let i = 0; i < blockCount; i++) {
-      const blockWidth = Math.floor(Math.random() * width * 0.2) + 20
-      const blockHeight = Math.floor(Math.random() * height * 0.1) + 10
-      const blockX = Math.floor(Math.random() * (width - blockWidth))
-      const blockY = Math.floor(Math.random() * (height - blockHeight))
+    // Apply RGB channel splitting
+    ctx.globalCompositeOperation = 'screen'
+    
+    // Red channel
+    ctx.fillStyle = 'rgba(255,0,0,0.5)'
+    ctx.fillRect(0, 0, width, height)
+    ctx.globalCompositeOperation = 'source-in'
+    ctx.drawImage(tempCanvas, offset, 0)
+    
+    // Blue channel
+    ctx.globalCompositeOperation = 'screen'
+    ctx.fillStyle = 'rgba(0,0,255,0.5)'
+    ctx.fillRect(0, 0, width, height)
+    ctx.globalCompositeOperation = 'source-in'
+    ctx.drawImage(tempCanvas, -offset, 0)
 
-      // Get block data
-      const blockData = tempCtx.getImageData(blockX, blockY, blockWidth, blockHeight)
-
-      // Apply some color distortion to the block
-      for (let j = 0; j < blockData.data.length; j += 4) {
-        const offset = Math.floor(Math.random() * 50 - 25)
-        blockData.data[j] = Math.min(255, Math.max(0, blockData.data[j] + offset))
-        blockData.data[j + 1] = Math.min(255, Math.max(0, blockData.data[j + 1] + offset))
-        blockData.data[j + 2] = Math.min(255, Math.max(0, blockData.data[j + 2] + offset))
-      }
-
-      // Shift the block horizontally
-      const shiftX = Math.floor((Math.random() - 0.5) * width * 0.2)
-      const targetX = Math.min(width - blockWidth, Math.max(0, blockX + shiftX))
-
-      // Draw the distorted block
-      ctx.putImageData(blockData, targetX, blockY)
-    }
+    // Reset composite operation
+    ctx.globalCompositeOperation = 'source-over'
+    
+    tempCanvas.remove()
   }
 
   const downloadGif = () => {
@@ -342,6 +434,155 @@ export function GlitchAnimator() {
     link.click()
     document.body.removeChild(link)
   }
+
+  // Preview animation function
+  const animate = (timestamp: number) => {
+    if (!image1 || !image2 || !previewCanvasRef.current) return
+
+    const canvas = previewCanvasRef.current
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })
+    if (!ctx) return
+
+    // Control animation speed
+    if (timestamp - lastFrameTimeRef.current < glitchSpeed) {
+      animationFrameRef.current = requestAnimationFrame(animate)
+      return
+    }
+    lastFrameTimeRef.current = timestamp
+
+    // Load images
+    const img1 = new Image()
+    const img2 = new Image()
+    img1.src = image1
+    img2.src = image2
+
+    const drawFrame = () => {
+      // If first run, set canvas size to match first image aspect ratio
+      if (img1.width > 0 && img1.height > 0 && (canvas.width !== img1.width || canvas.height !== img1.height)) {
+        canvas.width = img1.width
+        canvas.height = img1.height
+      }
+
+      // Clear canvas
+      ctx.fillStyle = '#fff'
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+      // Draw first image as base - maintaining aspect ratio
+      ctx.drawImage(img1, 0, 0, canvas.width, canvas.height)
+
+      // Create glitch mask for second image
+      ctx.save()
+      ctx.globalAlpha = 0.85
+      ctx.drawImage(img2, 0, 0, canvas.width, canvas.height)
+
+      // Create random rounded rectangle holes
+      ctx.globalCompositeOperation = 'destination-out'
+      const holes = 3 + Math.floor(Math.random() * 3)
+      for (let i = 0; i < holes; i++) {
+        const x = Math.random() * canvas.width
+        const y = Math.random() * canvas.height
+        const width = 50 + Math.random() * 150
+        const height = 40 + Math.random() * 100
+        const cornerRadius = Math.min(width, height) * 0.3
+
+        // Draw rounded rectangle
+        ctx.beginPath()
+        ctx.moveTo(x + cornerRadius, y)
+        ctx.lineTo(x + width - cornerRadius, y)
+        ctx.quadraticCurveTo(x + width, y, x + width, y + cornerRadius)
+        ctx.lineTo(x + width, y + height - cornerRadius)
+        ctx.quadraticCurveTo(x + width, y + height, x + width - cornerRadius, y + height)
+        ctx.lineTo(x + cornerRadius, y + height)
+        ctx.quadraticCurveTo(x, y + height, x, y + height - cornerRadius)
+        ctx.lineTo(x, y + cornerRadius)
+        ctx.quadraticCurveTo(x, y, x + cornerRadius, y)
+        ctx.closePath()
+        ctx.fill()
+      }
+      ctx.restore()
+
+      // Simplified and more subtle glitch effects
+      const intensity = glitchIntensity / 100
+      
+      // More subtle RGB shift
+      ctx.save()
+      const shift = Math.floor(intensity * 6)
+      if (shift > 0) {
+        ctx.globalAlpha = 0.3
+        ctx.globalCompositeOperation = 'screen'
+        ctx.drawImage(canvas, shift, 0)
+        ctx.drawImage(canvas, -shift, 0)
+      }
+      ctx.restore()
+
+      // Subtle scan lines
+      ctx.save()
+      ctx.globalCompositeOperation = 'overlay'
+      ctx.globalAlpha = 0.2
+      for (let y = 0; y < canvas.height; y += 4) {
+        if (Math.random() < intensity * 0.2) {
+          ctx.fillStyle = "rgba(0,0,0,0.1)"
+          ctx.fillRect(0, y, canvas.width, 2)
+        }
+      }
+      ctx.restore()
+
+      // Random subtle blocks
+      if (Math.random() < intensity * 0.3) {
+        ctx.save()
+        const blocks = Math.floor(intensity * 3)
+        for (let i = 0; i < blocks; i++) {
+          const x = Math.random() * canvas.width
+          const y = Math.random() * canvas.height
+          const w = 40 + Math.random() * 100
+          const h = 30 + Math.random() * 60
+          const cornerRadius = Math.min(w, h) * 0.3
+
+          // Draw rounded rectangle
+          ctx.beginPath()
+          ctx.moveTo(x + cornerRadius, y)
+          ctx.lineTo(x + w - cornerRadius, y)
+          ctx.quadraticCurveTo(x + w, y, x + w, y + cornerRadius)
+          ctx.lineTo(x + w, y + h - cornerRadius)
+          ctx.quadraticCurveTo(x + w, y + h, x + w - cornerRadius, y + h)
+          ctx.lineTo(x + cornerRadius, y + h)
+          ctx.quadraticCurveTo(x, y + h, x, y + h - cornerRadius)
+          ctx.lineTo(x, y + cornerRadius)
+          ctx.quadraticCurveTo(x, y, x + cornerRadius, y)
+          ctx.closePath()
+
+          ctx.fillStyle = `rgba(${Math.floor(Math.random()*255)},${Math.floor(Math.random()*255)},${Math.floor(Math.random()*255)},0.2)`
+          ctx.fill()
+        }
+        ctx.restore()
+      }
+    }
+
+    // Wait for images to load
+    Promise.all([
+      new Promise(resolve => { img1.onload = resolve }),
+      new Promise(resolve => { img2.onload = resolve })
+    ]).then(() => {
+      drawFrame()
+    })
+
+    // Continue animation
+    if (isPlaying) {
+      animationFrameRef.current = requestAnimationFrame(animate)
+    }
+  }
+
+  // Start/stop preview animation
+  useEffect(() => {
+    if (image1 && image2 && isPlaying) {
+      animationFrameRef.current = requestAnimationFrame(animate)
+    }
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current)
+      }
+    }
+  }, [image1, image2, isPlaying, glitchIntensity, glitchSpeed])
 
   return (
     <div className="w-full max-w-4xl mx-auto">
@@ -479,6 +720,23 @@ export function GlitchAnimator() {
           )}
         </Button>
       </div>
+
+      {image1 && image2 && (
+        <div className="mb-8">
+          <div className="relative aspect-square w-full max-w-2xl mx-auto overflow-hidden rounded-lg bg-black/10">
+            <canvas
+              ref={previewCanvasRef}
+              className="w-full h-full object-contain"
+            />
+            <Button
+              className="absolute bottom-4 right-4"
+              onClick={() => setIsPlaying(!isPlaying)}
+            >
+              {isPlaying ? "Stop Preview" : "Start Preview"}
+            </Button>
+          </div>
+        </div>
+      )}
 
       {resultGif && (
         <Card className="overflow-hidden">

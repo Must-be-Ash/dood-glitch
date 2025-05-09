@@ -1,40 +1,102 @@
-import { GlitchAnimator } from "@/components/glitch-animator"
+"use client"
+
 import { GlitchText } from "@/components/glitch-text"
+import Link from "next/link"
+import Image from "next/image"
+import { motion } from "framer-motion"
+import { Footer } from "@/components/footer"
 
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-4 md:p-24">
-      <div className="z-10 w-full max-w-5xl items-center justify-between">
-        <div className="mb-12 text-center">
+    <main className="flex min-h-screen flex-col items-center p-4 pt-16 sm:pt-24">
+      <div className="z-10 w-full max-w-5xl items-center justify-between flex-1">
+        <motion.div 
+          className="mb-16 sm:mb-12 text-center pt-8 sm:pt-0"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8 }}
+        >
           <GlitchText 
-            text="Glitch Animation Generator" 
-            className="text-5xl font-extrabold"
+            text="Porty" 
+            className="text-6xl font-extrabold"
             speed={6}
             shimmerWidth={180}
           />
-        </div>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5, duration: 0.8 }}
+            className="relative mt-2"
+          >
+            <p className="text-center mb-12">
+              enter the portal my doods <br /> see you on the other side!
+            </p>
+          </motion.div>
+        </motion.div>
 
-        <GlitchAnimator />
-        
-        <footer className="mt-16 text-center text-sm">
-          <div className="flex items-center justify-center gap-2">
-            <GlitchText 
-              text="made by" 
-              className="text-sm font-normal"
-              speed={8}
-              shimmerWidth={60}
-            />
-            <a href="https://x.com/Must_be_Ash" className="inline-block">
-              <GlitchText 
-                text="@must_be_ash" 
-                className="text-sm hover:text-[#ff42d0] transition-colors"
-                speed={8}
-                shimmerWidth={80}
-              />
-            </a>
-          </div>
-        </footer>
+        <motion.div 
+          className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-16"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.8, duration: 0.8 }}
+        >
+          <OptionCard 
+            title="GlitchUp"
+            href="/glitch"
+            imageSrc="/glitch.png"
+            delay={0.2}
+          />
+          <OptionCard 
+            title="LineUp"
+            href="/line"
+            imageSrc="/line.png"
+            delay={0.4}
+          />
+          <OptionCard 
+            title="LightUp"
+            href="/light-up"
+            imageSrc="/light-up.jpg"
+            delay={0.6}
+          />
+        </motion.div>
       </div>
+      <Footer />
     </main>
+  )
+}
+
+function OptionCard({ title, href, imageSrc, delay }: { 
+  title: string; 
+  href: string; 
+  imageSrc: string;
+  delay: number;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay, duration: 0.6 }}
+      whileHover={{ 
+        scale: 1.05,
+        boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)"
+      }}
+    >
+      <Link 
+        href={href}
+        className="block h-full overflow-hidden rounded-xl border border-gray-700 bg-gray-900/50 backdrop-blur-sm transition-all"
+      >
+        <div className="aspect-video w-full relative overflow-hidden">
+          <Image 
+            src={imageSrc} 
+            alt={title} 
+            fill
+            className="object-cover transition-transform duration-300 group-hover:scale-110"
+          />
+        </div>
+        <div className="p-4">
+          <h3 className="text-xl font-semibold text-center">{title}</h3>
+        </div>
+      </Link>
+    </motion.div>
   )
 }

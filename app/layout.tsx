@@ -3,6 +3,7 @@ import "./globals.css"
 import { Inter } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Analytics } from "@vercel/analytics/react"
+import DockNavigation from "@/components/nav"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -33,11 +34,11 @@ export const metadata = {
   openGraph: {
     title: "Glitch Doods",
     description: "Animate your doods",
-    url: "https://glitch-animation.vercel.app/",
+    url: "www.porty.app/",
     siteName: "Glitch Doods",
     images: [
       {
-        url: "https://glitch-animation.vercel.app/og.png",
+        url: "www.porty.app/og.png",
       },
     ],
     type: "website",
@@ -46,7 +47,7 @@ export const metadata = {
     card: "summary_large_image",
     title: "Glitch Doods",
     description: "Animate your doods",
-    images: ["https://glitch-animation.vercel.app/og.png"],
+    images: ["www.porty.app/og.png"],
   },
 }
 
@@ -66,6 +67,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           {children}
+          <DockNavigation />
           <Analytics />
         </ThemeProvider>
       </body>

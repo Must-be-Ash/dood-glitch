@@ -59,10 +59,10 @@ export async function convertVideoToGif(
   const ffmpeg = new FFmpeg();
   
   try {
-    // Load FFmpeg
+    // Load FFmpeg with proper paths
     await ffmpeg.load({
-      coreURL: await toBlobURL('/ffmpeg-core.js', 'text/javascript'),
-      wasmURL: await toBlobURL('/ffmpeg-core.wasm', 'application/wasm'),
+      coreURL: '/ffmpeg/ffmpeg-core.js',
+      wasmURL: '/ffmpeg/ffmpeg-core.wasm',
     });
 
     // Write video file to memory
@@ -76,12 +76,6 @@ export async function convertVideoToGif(
     }
 
     // Convert to GIF with good quality settings
-    // -i input.webm: specify input file
-    // -vf "fps=15,scale=800:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse": 
-    //   - fps=15: reduce to 15fps for smaller file size
-    //   - scale=800:-1: scale width to 800px, maintain aspect ratio
-    //   - flags=lanczos: high quality scaling
-    //   - split + palettegen + paletteuse: generate and use optimal color palette
     await ffmpeg.exec([
       '-i', 'input.webm',
       '-vf', 'fps=15,scale=800:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse',

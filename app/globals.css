@@ -4,6 +4,14 @@
 
 body {
   font-family: Arial, Helvetica, sans-serif;
+  padding-bottom: 80px; /* Add padding for mobile navigation */
+}
+
+@media (min-width: 640px) {
+  body {
+    padding-bottom: 0;
+    padding-top: 80px; /* Add padding for desktop navigation */
+  }
 }
 
 @layer utilities {
@@ -12,6 +20,10 @@ body {
   }
   .animate-shine {
     animation: shine 6s linear infinite;
+  }
+  .animate-gradient {
+    background-size: 200% auto;
+    animation: gradient 3s ease infinite;
   }
 }
 
@@ -111,5 +123,17 @@ body {
   }
   to {
     background-position: -200% center;
+  }
+}
+
+@keyframes gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
   }
 }

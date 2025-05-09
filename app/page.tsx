@@ -57,10 +57,12 @@ export default function Home() {
             href="/light-up"
             imageSrc="/light-up.jpg"
             delay={0.6}
-          />
+              />
         </motion.div>
       </div>
-      <Footer />
+      <div className="mt-24 sm:mt-12">
+        <Footer />
+      </div>
     </main>
   )
 }

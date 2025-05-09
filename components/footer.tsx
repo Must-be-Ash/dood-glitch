@@ -4,7 +4,7 @@ import { GlitchText } from "@/components/glitch-text"
 
 export function Footer() {
   return (
-    <footer className="w-full mt-auto pb-32 sm:pb-24 text-center text-sm">
+    <footer className="w-full mt-auto pb-36 sm:pb-28 text-center text-sm">
       <div className="flex items-center justify-center gap-2">
         <GlitchText 
           text="made by" 

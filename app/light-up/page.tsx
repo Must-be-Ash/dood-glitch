@@ -8,7 +8,7 @@ import { Download, Loader2 } from 'lucide-react';
 import { recordElement, convertVideoToGif } from "@/lib/screen-recorder";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { DualImageAnimator } from "@/components/dual-image-animator";
+import { ImageAnimator } from "@/components/dual-image-animator";
 
 interface AnimationFramesFromAPI {
   original: string;        // base64 data URL of transparent original
@@ -266,7 +266,7 @@ export default function LightUpPage() {
           </div>
           
           {isDualMode ? (
-            <DualImageAnimator />
+            <ImageAnimator />
           ) : (
             <>
               <div className="mb-12 p-6 bg-[#222222] backdrop-blur-sm rounded-xl shadow-lg border border-[#333333]">

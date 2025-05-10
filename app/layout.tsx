@@ -38,7 +38,7 @@ export const metadata = {
     type: "website",
     images: [
       {
-        url: "https://www.porty.app/og.png",
+        url: "https://www.porty.app/og.png?v=2",
       },
     ],
   },
@@ -46,7 +46,7 @@ export const metadata = {
     card: "summary_large_image",
     title: "Porty",
     description: "Enter the portal my doods",
-    images: ["https://www.porty.app/og.png"],
+    images: ["https://www.porty.app/og.png?v=2"],
   },
 }
 

@@ -6,9 +6,11 @@ import { GlitchText } from "@/components/glitch-text";
 import { Footer } from "@/components/footer"
 import { Download, Loader2 } from 'lucide-react';
 import { recordElement, convertVideoToGif } from "@/lib/screen-recorder";
-import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { DualImageAnimator } from "@/components/dual-image-animator";
+import { ImageAnimator } from "@/components/thriple-image-animator";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { cn } from "@/lib/utils"
 
 interface AnimationFramesFromAPI {
   original: string;        // base64 data URL of transparent original
@@ -56,7 +58,7 @@ export default function LightUpPage() {
   const [conversionProgress, setConversionProgress] = useState(0);
   const previewRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isDualMode, setIsDualMode] = useState(true);
+  const [animationMode, setAnimationMode] = useState<'single' | 'dual' | 'triple'>('dual');
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -255,17 +257,32 @@ export default function LightUpPage() {
             Upload your doodle and get a light up animation
           </p>
 
-          <div className="flex items-center justify-center gap-2 mb-12">
-            <Label htmlFor="dual-mode" className="text-sm">og dood</Label>
-            <Switch
-              id="dual-mode"
-              checked={isDualMode}
-              onCheckedChange={setIsDualMode}
-            />
-            <Label htmlFor="dual-mode" className="text-sm">w/ dark dood</Label>
+          <div className="flex flex-col items-center justify-center gap-4 mb-12">
+            <div className="inline-flex p-1 bg-[#222222] rounded-lg border border-[#333333]">
+              {[
+                { value: 'single', label: 'OG' },
+                { value: 'dual', label: 'DarkDood' },
+                { value: 'triple', label: 'Triple' }
+              ].map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => setAnimationMode(option.value as 'single' | 'dual' | 'triple')}
+                  className={cn(
+                    "relative px-6 py-2 text-sm font-medium rounded-md transition-all duration-200",
+                    animationMode === option.value
+                      ? "bg-[#333333] text-white shadow-sm after:absolute after:bottom-0 after:left-2 after:right-2 after:h-[2px] after:bg-white after:shadow-[0_0_8px_rgba(255,255,255,0.5)] after:rounded-full"
+                      : "text-gray-400 hover:text-white hover:bg-[#2a2a2a]"
+                  )}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
           </div>
           
-          {isDualMode ? (
+          {animationMode === 'triple' ? (
+            <ImageAnimator />
+          ) : animationMode === 'dual' ? (
             <DualImageAnimator />
           ) : (
             <>
@@ -347,7 +364,7 @@ export default function LightUpPage() {
           )}
         </div>
       </div>
-      <div className={`w-full ${currentDisplayImage || isDualMode ? 'mt-32' : 'mt-16'}`}>
+      <div className={`w-full ${currentDisplayImage || animationMode !== 'single' ? 'mt-32' : 'mt-16'}`}>
         <Footer />
       </div>
     </main>

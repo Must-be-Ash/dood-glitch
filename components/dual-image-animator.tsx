@@ -205,7 +205,10 @@ export function DualImageAnimator() {
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-black/30"></div>
                   <div className="absolute inset-0 bg-gradient-to-b from-black/60 to-black/30"></div>
                   <span className="text-white font-extrabold text-lg drop-shadow-md relative z-10">UPLOAD</span>
-                  <span className="text-white font-extrabold text-2xl md:text-3xl lg:text-4xl drop-shadow-md relative z-10 text-center tracking-wide">RAINBOW DOOD</span>
+                  <span className="text-white font-extrabold text-2xl md:text-3xl lg:text-4xl drop-shadow-md relative z-10 text-center tracking-wide">
+                    <span className="md:hidden">RAINBOW DOOD</span>
+                    <span className="hidden md:inline">RAINBOW<br />DOOD</span>
+                  </span>
                 </div>
               </div>
             ) : (

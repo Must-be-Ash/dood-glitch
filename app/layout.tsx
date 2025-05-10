@@ -8,8 +8,8 @@ import DockNavigation from "@/components/nav"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata = {
-  title: "Glitch Doods",
-  description: "Animate your doods",
+  title: "Porty",
+  description: "Enter the portal my doods",
   keywords: "Animation, DOOD, Doodles, Darkmode Dood",
   authors: [{ name: "@must_be_ash" }],
   themeColor: "#000000",
@@ -32,22 +32,21 @@ export const metadata = {
   },
   manifest: '/site.webmanifest',
   openGraph: {
-    title: "Glitch Doods",
-    description: "Animate your doods",
-    url: "www.porty.app/",
-    siteName: "Glitch Doods",
+    title: "Porty",
+    description: "Enter the portal my doods",
+    url: "https://www.porty.app/",
+    type: "website",
     images: [
       {
-        url: "www.porty.app/og.png",
+        url: "https://www.porty.app/og.png",
       },
     ],
-    type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Glitch Doods",
-    description: "Animate your doods",
-    images: ["www.porty.app/og.png"],
+    title: "Porty",
+    description: "Enter the portal my doods",
+    images: ["https://www.porty.app/og.png"],
   },
 }
 

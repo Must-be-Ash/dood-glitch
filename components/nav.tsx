@@ -1,6 +1,6 @@
 "use client"
 
-import { Home, PenLine, Zap, Lightbulb } from 'lucide-react'
+import { Home, PenLine, Zap, Lightbulb, Sticker } from 'lucide-react'
 import { NavBar } from "@/components/ui/tubelight-navbar"
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
@@ -14,7 +14,8 @@ export function DockNavigation() {
     { name: 'Porty', url: '/', icon: Home },
     { name: 'GlitchUp', url: '/glitch', icon: Zap },
     { name: 'LineUp', url: '/line', icon: PenLine },
-    { name: 'LightUp', url: '/light-up', icon: Lightbulb }
+    { name: 'LightUp', url: '/light-up', icon: Lightbulb },
+    { name: 'Sticker', url: '/sticker', icon: Sticker }
   ]
   
   // Update active item based on current path
@@ -27,6 +28,8 @@ export function DockNavigation() {
       setActiveItem('LineUp')
     } else if (pathname === '/light-up') {
       setActiveItem('LightUp')
+    } else if (pathname === '/sticker') {
+      setActiveItem('Sticker')
     }
   }, [pathname])
   

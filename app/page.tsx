@@ -57,7 +57,13 @@ export default function Home() {
             href="/light-up"
             imageSrc="/light-up.jpg"
             delay={0.6}
-              />
+          />
+          <OptionCard 
+            title="Sticker"
+            href="/sticker"
+            imageSrc="/sticker-dood.png"
+            delay={0.8}
+          />
         </motion.div>
       </div>
       <div className="mt-24 sm:mt-12">

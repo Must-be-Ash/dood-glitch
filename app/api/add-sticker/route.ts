@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     const { width = 800, height = 800 } = imageMetadata;
 
     // Load the sticker image
-    const stickerPath = join(process.cwd(), 'public', 'sticke.png');
+    const stickerPath = join(process.cwd(), 'public', 'sticker.png');
     
     // Get sticker metadata to calculate proper dimensions
     const stickerMetadata = await sharp(stickerPath).metadata();

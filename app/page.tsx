@@ -65,10 +65,16 @@ export default function Home() {
             delay={0.8}
           />
           <OptionCard 
+            title="Background"
+            href="/bg"
+            imageSrc="/moon.png"
+            delay={1.0}
+          />
+          <OptionCard 
             title="DoodCatch"
             href="https://catch.porty.app/"
             imageSrc="/dood-token.MP4"
-            delay={1.0}
+            delay={1.2}
             isVideo
             isExternal
           />
@@ -128,12 +134,12 @@ function OptionCard({
               className="object-cover w-full h-full"
             />
           ) : (
-            <Image 
-              src={imageSrc} 
-              alt={title} 
-              fill
-              className="object-cover transition-transform duration-300 group-hover:scale-110"
-            />
+          <Image 
+            src={imageSrc} 
+            alt={title} 
+            fill
+            className="object-cover transition-transform duration-300 group-hover:scale-110"
+          />
           )}
         </div>
         <div className="p-4">

@@ -4,15 +4,19 @@ import { Inter } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Analytics } from "@vercel/analytics/react"
 import DockNavigation from "@/components/nav"
+import type { Metadata, Viewport } from 'next'
 
 const inter = Inter({ subsets: ["latin"] })
 
-export const metadata = {
+export const viewport: Viewport = {
+  themeColor: "#000000",
+}
+
+export const metadata: Metadata = {
   title: "Porty",
   description: "Enter the portal my doods",
   keywords: "Animation, DOOD, Doodles, Darkmode Dood",
   authors: [{ name: "@must_be_ash" }],
-  themeColor: "#000000",
   icons: {
     icon: [
       { url: '/favicon.ico' },

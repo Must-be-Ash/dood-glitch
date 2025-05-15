@@ -88,6 +88,7 @@ const DEFAULT_BACKGROUNDS = [
 
 export function BackgroundChanger() {
   const previewRef = useRef<HTMLDivElement>(null);
+  const foregroundRef = useRef<HTMLDivElement>(null); // Ref for the foreground wrapper
   const [mode, setMode] = useState<'pfp' | 'banner'>('pfp');
   const [originalImage, setOriginalImage] = useState<string | null>(null);
   const [originalImageDimensions, setOriginalImageDimensions] = useState<{ width: number; height: number } | null>(null);
@@ -173,7 +174,8 @@ export function BackgroundChanger() {
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (mode === 'banner') {
+    // Allow dragging only on the foreground element, not the entire preview container if mode is banner
+    if (mode === 'banner' && foregroundRef.current && foregroundRef.current.contains(e.target as Node)) {
       setIsDragging(true);
       setDragStart({
         x: e.clientX - position.x,
@@ -196,108 +198,119 @@ export function BackgroundChanger() {
   };
 
   const handleWheel = (e: React.WheelEvent) => {
-    if (mode === 'banner') {
+    if (mode === 'banner' && previewRef.current && foregroundRef.current && foregroundRef.current.contains(e.target as Node)) {
       e.preventDefault();
       const newScale = scale + (e.deltaY > 0 ? -0.1 : 0.1);
-      setScale(Math.max(0.1, Math.min(5, newScale))); // Adjusted scale limits
+      setScale(Math.max(0.1, Math.min(5, newScale)));
     }
   };
 
   const handleDownload = async () => {
     setLoading(true);
     try {
+      const previewElement = previewRef.current;
+      const fgElement = foregroundRef.current; // Renamed for clarity within this function scope
+
+      if (!previewElement || (mode === 'banner' && !fgElement)) {
+        console.error("Preview or foreground reference not available for download.");
+        setLoading(false);
+        return;
+      }
+
       if (mode === 'banner') {
-        const previewElement = previewRef.current;
-        if (!selectedBackground || !removedBgImage || !previewElement) {
-          console.error("Required elements not available for banner download.");
+        if (!selectedBackground || !removedBgImage || !fgElement) {
+          console.error("Background or foreground image not selected for banner.");
           setLoading(false);
           return;
         }
 
-        const canvas = document.createElement('canvas');
         const targetDownloadWidth = 1500;
         const targetDownloadHeight = 500;
-        const outputScaleFactor = 2; // For higher resolution output
+        const outputScaleFactor = 2; // For 2x resolution output (3000x1000)
 
-        canvas.width = targetDownloadWidth * outputScaleFactor;
-        canvas.height = targetDownloadHeight * outputScaleFactor;
-        
-        const ctx = canvas.getContext('2d');
-        if (!ctx) throw new Error("Failed to get canvas context");
+        const outputCanvas = document.createElement('canvas');
+        outputCanvas.width = targetDownloadWidth * outputScaleFactor;
+        outputCanvas.height = targetDownloadHeight * outputScaleFactor;
+        const ctx = outputCanvas.getContext('2d');
+        if (!ctx) throw new Error("Failed to get output canvas context");
 
-        ctx.scale(outputScaleFactor, outputScaleFactor); // Scale context for drawing at higher res
-
+        // 1. Draw Background Manually and Precisely
         const bgImg = await loadImage(selectedBackground);
         const imgOriginalWidth = bgImg.naturalWidth;
         const imgOriginalHeight = bgImg.naturalHeight;
         const imgAR = imgOriginalWidth / imgOriginalHeight;
-        const canvasAR = targetDownloadWidth / targetDownloadHeight;
-        let bgDrawX = 0, bgDrawY = 0, bgDrawWidth = targetDownloadWidth, bgDrawHeight = targetDownloadHeight;
+        const canvasAR = targetDownloadWidth / targetDownloadHeight; // This is 3
 
-        if (imgAR >= canvasAR) { // BG is wider or same AR as canvas. It will be scaled to fit target height.
-            bgDrawHeight = targetDownloadHeight;
-            bgDrawWidth = bgDrawHeight * imgAR;
-            bgDrawX = (targetDownloadWidth - bgDrawWidth) / 2;
-            bgDrawY = 0; // No vertical slide, or centered if not scrollable
-        } else { // BG is taller. It will be scaled to fit target width.
-            bgDrawWidth = targetDownloadWidth;
-            bgDrawHeight = bgDrawWidth / imgAR;
+        let bgDrawX = 0, bgDrawY = 0, bgScaledWidth = 0, bgScaledHeight = 0;
+
+        if (imgAR >= canvasAR) { // Image is wider or same aspect ratio, scale by height
+            bgScaledHeight = targetDownloadHeight;
+            bgScaledWidth = bgScaledHeight * imgAR;
+            bgDrawX = (targetDownloadWidth - bgScaledWidth) / 2; // Center horizontally
+            bgDrawY = 0;
+        } else { // Image is taller, scale by width, then apply Y offset
+            bgScaledWidth = targetDownloadWidth;
+            bgScaledHeight = bgScaledWidth / imgAR;
             bgDrawX = 0;
-            const excessHeight = bgDrawHeight - targetDownloadHeight;
-            if (excessHeight <= 0) {
-                bgDrawY = (targetDownloadHeight - bgDrawHeight) / 2; // Center if not actually taller
+            const excessHeight = bgScaledHeight - targetDownloadHeight;
+            if (excessHeight <= 0) { // Should not happen if imgAR < canvasAR but good check
+                bgDrawY = (targetDownloadHeight - bgScaledHeight) / 2; // Center if not actually taller
             } else {
                 bgDrawY = - (excessHeight * (backgroundYOffset / 100));
             }
         }
-        ctx.drawImage(bgImg, bgDrawX, bgDrawY, bgDrawWidth, bgDrawHeight);
+        // Draw onto the output canvas, scaled by outputScaleFactor
+        ctx.drawImage(bgImg, 0, 0, imgOriginalWidth, imgOriginalHeight, 
+                      bgDrawX * outputScaleFactor, bgDrawY * outputScaleFactor, 
+                      bgScaledWidth * outputScaleFactor, bgScaledHeight * outputScaleFactor);
 
-        const fgImg = await loadImage(removedBgImage);
+        // 2. Capture Foreground with html2canvas and Draw it
+        const originalFgStyle = fgElement.style.backgroundColor;
+        fgElement.style.backgroundColor = 'transparent'; // Ensure transparent capture
         
-        // Scale position from preview dimensions to target download dimensions
-        const currentPreviewWidth = previewElement.offsetWidth;
-        const currentPreviewHeight = previewElement.offsetHeight;
-        const scaleX = targetDownloadWidth / currentPreviewWidth;
-        const scaleY = targetDownloadHeight / currentPreviewHeight;
-
-        const finalPosX = position.x * scaleX;
-        const finalPosY = position.y * scaleY;
-
-        ctx.save();
-        ctx.translate(finalPosX, finalPosY);
-        ctx.scale(scale, scale);
-        const fgBaseRenderWidth = 300; // Base size before user scaling
-        const fgBaseRenderHeight = 300;
-        ctx.drawImage(fgImg, 0, 0, fgBaseRenderWidth, fgBaseRenderHeight);
-        ctx.restore();
-
-        const blob = await new Promise<Blob>((resolve, reject) => {
-          canvas.toBlob(b => b ? resolve(b) : reject(new Error("Canvas toBlob failed for banner")), 'image/png');
+        const fgCanvas = await html2canvas(fgElement, {
+          backgroundColor: null,
+          useCORS: true,
+          scale: outputScaleFactor, // Match output canvas scale factor
         });
-        triggerDownload(blob, `porty-banner-${Date.now()}.png`);
+        fgElement.style.backgroundColor = originalFgStyle; // Restore original color
 
-      } else { // PFP mode
-        if (!previewRef.current) {
-          console.error("Preview reference not available for PFP download.");
-          setLoading(false);
-          return;
-        }
-        const canvas = await html2canvas(previewRef.current, {
+        const previewRect = previewElement.getBoundingClientRect();
+        const fgRect = fgElement.getBoundingClientRect();
+        
+        const fgLeftInPreview = fgRect.left - previewRect.left;
+        const fgTopInPreview = fgRect.top - previewRect.top;
+        
+        const drawX = (fgLeftInPreview / previewRect.width) * outputCanvas.width;
+        const drawY = (fgTopInPreview / previewRect.height) * outputCanvas.height;
+        // The fgCanvas is already scaled by outputScaleFactor by html2canvas,
+        // so we draw it at its captured size, but positioned proportionally.
+        // We need to scale its *target draw size* on the outputCanvas based on preview proportion.
+        const fgDrawWidth = (fgRect.width / previewRect.width) * outputCanvas.width;
+        const fgDrawHeight = (fgRect.height / previewRect.height) * outputCanvas.height;
+
+        ctx.drawImage(fgCanvas, 0,0, fgCanvas.width, fgCanvas.height, drawX, drawY, fgDrawWidth, fgDrawHeight );
+        
+        const finalBlob = await new Promise<Blob>((resolve, reject) => {
+          outputCanvas.toBlob(b => b ? resolve(b) : reject(new Error("Final canvas toBlob failed for banner")), 'image/png');
+        });
+        triggerDownload(finalBlob, `porty-banner-${Date.now()}.png`);
+
+      } else { // PFP mode: Use html2canvas for the whole preview
+        const capturedCanvas = await html2canvas(previewElement, {
           useCORS: true,
           allowTaint: true,
-          backgroundColor: null, 
+          backgroundColor: null,
           scale: 2, 
         });
-        const blob = await new Promise<Blob>((resolve, reject) => {
-          canvas.toBlob(b => b ? resolve(b) : reject(new Error("Canvas toBlob failed for PFP")), 'image/png');
+        const finalBlob = await new Promise<Blob>((resolve, reject) => {
+          capturedCanvas.toBlob(b => b ? resolve(b) : reject(new Error("Captured canvas toBlob failed for PFP")), 'image/png');
         });
-        triggerDownload(blob, `porty-pfp-${Date.now()}.png`);
+        triggerDownload(finalBlob, `porty-pfp-${Date.now()}.png`);
       }
-    } catch (error) {
-      console.error('Error downloading image:', error);
-    } finally {
-      setLoading(false);
-    }
+
+    } catch (error) { console.error('Error downloading image:', error); }
+    finally { setLoading(false); }
   };
 
   return (
@@ -447,6 +460,7 @@ export function BackgroundChanger() {
                 />
               </div>
               <div
+                ref={foregroundRef}
                 className="absolute"
                 style={{
                   transform: mode === 'banner' 
@@ -460,7 +474,10 @@ export function BackgroundChanger() {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center'
-                  } : {}),
+                  } : {
+                    width: '300px',
+                    height: '300px',
+                  }),
                   ...(mode === 'pfp' && removedBgImage && originalImageDimensions ? {
                     aspectRatio: `${originalImageDimensions.width} / ${originalImageDimensions.height}`,
                   } : {})

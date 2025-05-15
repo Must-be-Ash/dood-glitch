@@ -1,12 +1,55 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
-import { Upload, X, Download, Image as ImageIcon } from 'lucide-react';
+import { Upload, X, Download, Image as ImageIcon, Rows } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Slider } from "@/components/ui/slider";
 import html2canvas from 'html2canvas';
+
+// Helper function to load an image
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new window.Image();
+    img.crossOrigin = "Anonymous"; // Needed for use in canvas if src is from different origin or blob
+    img.onload = () => resolve(img);
+    img.onerror = (err) => reject(err);
+    img.src = src;
+  });
+}
+
+// Helper function for object-cover drawing logic
+function drawObjectCover(ctx: CanvasRenderingContext2D, img: HTMLImageElement, targetWidth: number, targetHeight: number) {
+  const imgWidth = img.naturalWidth;
+  const imgHeight = img.naturalHeight;
+  const imgRatio = imgWidth / imgHeight;
+  const targetRatio = targetWidth / targetHeight;
+
+  let sx = 0, sy = 0, sWidth = imgWidth, sHeight = imgHeight;
+
+  if (imgRatio > targetRatio) { // Image is wider than target, crop sides
+    sWidth = imgHeight * targetRatio;
+    sx = (imgWidth - sWidth) / 2;
+  } else if (imgRatio < targetRatio) { // Image is taller than target, crop top/bottom
+    sHeight = imgWidth / targetRatio;
+    sy = (imgHeight - sHeight) / 2;
+  }
+  ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, targetWidth, targetHeight);
+}
+
+// Helper function to trigger download
+function triggerDownload(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
 
 // These would be your actual background images
 const DEFAULT_BACKGROUNDS = [
@@ -51,36 +94,47 @@ export function BackgroundChanger() {
   const [removedBgImage, setRemovedBgImage] = useState<string | null>(null);
   const [customBackground, setCustomBackground] = useState<string | null>(null);
   const [selectedBackground, setSelectedBackground] = useState<string | null>(null);
+  const [backgroundYOffset, setBackgroundYOffset] = useState(50); // 0-100, default 50 (center)
+  const [isBgVerticallyScrollable, setIsBgVerticallyScrollable] = useState(false);
   const [loading, setLoading] = useState(false);
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   
+  useEffect(() => {
+    if (mode === 'banner' && selectedBackground) {
+      loadImage(selectedBackground).then(img => {
+        const imgAR = img.naturalWidth / img.naturalHeight;
+        const bannerAR = 1500 / 500; // 3:1
+        setIsBgVerticallyScrollable(imgAR < bannerAR);
+      }).catch(() => setIsBgVerticallyScrollable(false));
+    } else {
+      setIsBgVerticallyScrollable(false);
+    }
+  }, [mode, selectedBackground]);
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setLoading(true);
     
-    // Get original image dimensions
     const img = new window.Image();
     img.onload = () => {
       setOriginalImageDimensions({
-        width: img.width,
-        height: img.height
+        width: img.naturalWidth,
+        height: img.naturalHeight
       });
     };
     img.src = URL.createObjectURL(file);
 
-    // Display original image
     const reader = new FileReader();
     reader.onloadend = () => {
       setOriginalImage(reader.result as string);
     };
     reader.readAsDataURL(file);
 
-    // Process image to remove background
     const formData = new FormData();
     formData.append('image', file);
 
@@ -95,7 +149,9 @@ export function BackgroundChanger() {
       const blob = await response.blob();
       const processedImageUrl = URL.createObjectURL(blob);
       setRemovedBgImage(processedImageUrl);
-      setSelectedBackground(DEFAULT_BACKGROUNDS[0].src); // Set default background
+      if (DEFAULT_BACKGROUNDS.length > 0) {
+        setSelectedBackground(DEFAULT_BACKGROUNDS[0].src);
+      }
     } catch (error) {
       console.error('Error processing image:', error);
     } finally {
@@ -143,40 +199,100 @@ export function BackgroundChanger() {
     if (mode === 'banner') {
       e.preventDefault();
       const newScale = scale + (e.deltaY > 0 ? -0.1 : 0.1);
-      setScale(Math.max(0.5, Math.min(3, newScale)));
+      setScale(Math.max(0.1, Math.min(5, newScale))); // Adjusted scale limits
     }
   };
 
   const handleDownload = async () => {
-    if (!previewRef.current) return;
-    
+    setLoading(true);
     try {
-      setLoading(true);
-      
-      // Create canvas from the preview div
-      const canvas = await html2canvas(previewRef.current, {
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: null,
-        scale: 2, // Higher quality
-      });
+      if (mode === 'banner') {
+        const previewElement = previewRef.current;
+        if (!selectedBackground || !removedBgImage || !previewElement) {
+          console.error("Required elements not available for banner download.");
+          setLoading(false);
+          return;
+        }
 
-      // Convert canvas to blob
-      const blob = await new Promise<Blob>((resolve) => {
-        canvas.toBlob((b: Blob | null) => {
-          if (b) resolve(b);
-        }, 'image/png');
-      });
+        const canvas = document.createElement('canvas');
+        const targetDownloadWidth = 1500;
+        const targetDownloadHeight = 500;
+        const outputScaleFactor = 2; // For higher resolution output
 
-      // Create download link
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `porty-${mode}-${Date.now()}.png`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+        canvas.width = targetDownloadWidth * outputScaleFactor;
+        canvas.height = targetDownloadHeight * outputScaleFactor;
+        
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error("Failed to get canvas context");
+
+        ctx.scale(outputScaleFactor, outputScaleFactor); // Scale context for drawing at higher res
+
+        const bgImg = await loadImage(selectedBackground);
+        const imgOriginalWidth = bgImg.naturalWidth;
+        const imgOriginalHeight = bgImg.naturalHeight;
+        const imgAR = imgOriginalWidth / imgOriginalHeight;
+        const canvasAR = targetDownloadWidth / targetDownloadHeight;
+        let bgDrawX = 0, bgDrawY = 0, bgDrawWidth = targetDownloadWidth, bgDrawHeight = targetDownloadHeight;
+
+        if (imgAR >= canvasAR) { // BG is wider or same AR as canvas. It will be scaled to fit target height.
+            bgDrawHeight = targetDownloadHeight;
+            bgDrawWidth = bgDrawHeight * imgAR;
+            bgDrawX = (targetDownloadWidth - bgDrawWidth) / 2;
+            bgDrawY = 0; // No vertical slide, or centered if not scrollable
+        } else { // BG is taller. It will be scaled to fit target width.
+            bgDrawWidth = targetDownloadWidth;
+            bgDrawHeight = bgDrawWidth / imgAR;
+            bgDrawX = 0;
+            const excessHeight = bgDrawHeight - targetDownloadHeight;
+            if (excessHeight <= 0) {
+                bgDrawY = (targetDownloadHeight - bgDrawHeight) / 2; // Center if not actually taller
+            } else {
+                bgDrawY = - (excessHeight * (backgroundYOffset / 100));
+            }
+        }
+        ctx.drawImage(bgImg, bgDrawX, bgDrawY, bgDrawWidth, bgDrawHeight);
+
+        const fgImg = await loadImage(removedBgImage);
+        
+        // Scale position from preview dimensions to target download dimensions
+        const currentPreviewWidth = previewElement.offsetWidth;
+        const currentPreviewHeight = previewElement.offsetHeight;
+        const scaleX = targetDownloadWidth / currentPreviewWidth;
+        const scaleY = targetDownloadHeight / currentPreviewHeight;
+
+        const finalPosX = position.x * scaleX;
+        const finalPosY = position.y * scaleY;
+
+        ctx.save();
+        ctx.translate(finalPosX, finalPosY);
+        ctx.scale(scale, scale);
+        const fgBaseRenderWidth = 300; // Base size before user scaling
+        const fgBaseRenderHeight = 300;
+        ctx.drawImage(fgImg, 0, 0, fgBaseRenderWidth, fgBaseRenderHeight);
+        ctx.restore();
+
+        const blob = await new Promise<Blob>((resolve, reject) => {
+          canvas.toBlob(b => b ? resolve(b) : reject(new Error("Canvas toBlob failed for banner")), 'image/png');
+        });
+        triggerDownload(blob, `porty-banner-${Date.now()}.png`);
+
+      } else { // PFP mode
+        if (!previewRef.current) {
+          console.error("Preview reference not available for PFP download.");
+          setLoading(false);
+          return;
+        }
+        const canvas = await html2canvas(previewRef.current, {
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: null, 
+          scale: 2, 
+        });
+        const blob = await new Promise<Blob>((resolve, reject) => {
+          canvas.toBlob(b => b ? resolve(b) : reject(new Error("Canvas toBlob failed for PFP")), 'image/png');
+        });
+        triggerDownload(blob, `porty-pfp-${Date.now()}.png`);
+      }
     } catch (error) {
       console.error('Error downloading image:', error);
     } finally {
@@ -233,7 +349,7 @@ export function BackgroundChanger() {
         <Card className="p-6">
           <h3 className="text-lg font-semibold mb-4">Background Library</h3>
           <Tabs defaultValue="all" className="w-full mb-6">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-5">
               <TabsTrigger value="all">All</TabsTrigger>
               <TabsTrigger value="solid">Solid Colors</TabsTrigger>
               <TabsTrigger value="gradients">Gradients</TabsTrigger>
@@ -242,18 +358,18 @@ export function BackgroundChanger() {
             </TabsList>
             
             <TabsContent value="all" className="mt-4">
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                 {DEFAULT_BACKGROUNDS.map((bg) => (
                   <BackgroundButton key={bg.src} background={bg} selected={selectedBackground === bg.src} onSelect={setSelectedBackground} />
                 ))}
               </div>
             </TabsContent>
             
-            {['solid', 'gradients', 'effects', 'dynamic'].map((category) => (
-              <TabsContent key={category} value={category} className="mt-4">
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {['Solid Colors', 'Gradients', 'Special Effects', 'Dynamic'].map((categoryName) => (
+              <TabsContent key={categoryName} value={categoryName.toLowerCase().replace(" ", "")} className="mt-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                   {DEFAULT_BACKGROUNDS
-                    .filter(bg => bg.category.toLowerCase().includes(category.replace('solid', 'solid colors')))
+                    .filter(bg => bg.category === categoryName)
                     .map((bg) => (
                       <BackgroundButton key={bg.src} background={bg} selected={selectedBackground === bg.src} onSelect={setSelectedBackground} />
                     ))}
@@ -264,14 +380,38 @@ export function BackgroundChanger() {
         </Card>
       )}
 
-      {/* Mode Toggle */}
+      {/* Mode Toggle & Background Y Offset Slider */}
       {removedBgImage && selectedBackground && (
-        <Tabs defaultValue="pfp" className="w-full" onValueChange={(value) => setMode(value as 'pfp' | 'banner')}>
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="pfp">Profile Picture</TabsTrigger>
-            <TabsTrigger value="banner">Banner</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <div className="space-y-4">
+          <Tabs defaultValue="pfp" className="w-full" onValueChange={(value) => { setMode(value as 'pfp' | 'banner'); setBackgroundYOffset(50); /* Reset on mode change */ }}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="pfp">Profile Picture</TabsTrigger>
+              <TabsTrigger value="banner">Banner</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          {mode === 'banner' && (
+            <Card className="p-4">
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <label htmlFor="bg-y-offset" className="text-sm font-medium flex items-center gap-2">
+                    <Rows className="w-4 h-4" /> Background Vertical Position
+                  </label>
+                  <span className="text-sm text-muted-foreground">{backgroundYOffset}%</span>
+                </div>
+                <Slider
+                  id="bg-y-offset"
+                  value={[backgroundYOffset]}
+                  onValueChange={(value) => setBackgroundYOffset(value[0])}
+                  min={0}
+                  max={100}
+                  step={1}
+                  disabled={!isBgVerticallyScrollable}
+                />
+                 {!isBgVerticallyScrollable && <p className="text-xs text-muted-foreground text-center">This background fits perfectly, no vertical adjustment needed.</p>}
+              </div>
+            </Card>
+          )}
+        </div>
       )}
 
       {/* Preview Section */}
@@ -281,8 +421,9 @@ export function BackgroundChanger() {
             <h3 className="text-lg font-semibold">Preview & Adjust</h3>
             <div 
               ref={previewRef}
-              className={`relative overflow-hidden ${
-                mode === 'pfp' ? 'w-full aspect-square' : 'w-full h-[500px]'
+              className={`relative overflow-hidden bg-gray-700 ${
+                mode === 'pfp' ? 'w-full aspect-square' 
+                                : 'w-full max-w-[1500px] mx-auto aspect-[3/1]' // Enforce 3:1 for banner preview
               }`}
               onMouseDown={handleMouseDown}
               onMouseMove={handleMouseMove}
@@ -290,8 +431,8 @@ export function BackgroundChanger() {
               onMouseLeave={handleMouseUp}
               onWheel={handleWheel}
               style={{
-                width: mode === 'banner' ? '1500px' : '100%',
-                maxWidth: '100%'
+                // Remove explicit width/maxWidth from here for banner as className handles it
+                cursor: mode === 'banner' && isDragging ? 'grabbing' : (mode === 'banner' ? 'grab' : 'default')
               }}
             >
               <div className="absolute inset-0">
@@ -300,7 +441,9 @@ export function BackgroundChanger() {
                   alt="Background"
                   fill
                   className="object-cover"
+                  style={{ objectPosition: mode === 'banner' ? `center ${backgroundYOffset}%` : 'center center'}}
                   unoptimized
+                  priority // Eager load background for better preview
                 />
               </div>
               <div
@@ -309,14 +452,17 @@ export function BackgroundChanger() {
                   transform: mode === 'banner' 
                     ? `translate(${position.x}px, ${position.y}px) scale(${scale})`
                     : 'none',
-                  cursor: mode === 'banner' ? (isDragging ? 'grabbing' : 'grab') : 'default',
                   transition: isDragging ? 'none' : 'transform 0.1s',
+                  pointerEvents: mode === 'banner' ? 'auto' : 'none', // Allow drag only in banner mode
                   ...(mode === 'pfp' && originalImageDimensions ? {
                     width: '100%',
                     height: '100%',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center'
+                  } : {}),
+                  ...(mode === 'pfp' && removedBgImage && originalImageDimensions ? {
+                    aspectRatio: `${originalImageDimensions.width} / ${originalImageDimensions.height}`,
                   } : {})
                 }}
               >
@@ -325,8 +471,9 @@ export function BackgroundChanger() {
                   alt="Your character"
                   width={mode === 'pfp' && originalImageDimensions ? originalImageDimensions.width : 300}
                   height={mode === 'pfp' && originalImageDimensions ? originalImageDimensions.height : 300}
-                  className={`pointer-events-none ${mode === 'pfp' ? 'object-contain' : ''}`}
+                  className={`pointer-events-none ${mode === 'pfp' ? 'object-contain max-w-full max-h-full' : ''}`}
                   unoptimized
+                  priority // Eager load foreground for better preview
                 />
               </div>
             </div>
@@ -335,13 +482,23 @@ export function BackgroundChanger() {
                 <Button onClick={() => {
                   setScale(1);
                   setPosition({ x: 0, y: 0 });
+                  setBackgroundYOffset(50);
                 }}>
                   Reset Position
                 </Button>
               )}
-              <Button onClick={handleDownload}>
-                <Download className="w-4 h-4 mr-2" />
-                Download
+              <Button onClick={handleDownload} disabled={loading}>
+                {loading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                    Downloading...
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4 mr-2" />
+                    Download
+                  </>
+                )}
               </Button>
             </div>
           </div>
@@ -349,10 +506,10 @@ export function BackgroundChanger() {
       )}
 
       {loading && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
-          <div className="bg-background p-8 rounded-lg flex items-center gap-4">
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+          <div className="bg-background p-8 rounded-lg flex items-center gap-4 shadow-2xl">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            <span>Processing image...</span>
+            <span className="text-lg">Processing image...</span>
           </div>
         </div>
       )}
@@ -372,8 +529,8 @@ function BackgroundButton({
   return (
     <button
       onClick={() => onSelect(background.src)}
-      className={`relative aspect-video w-full rounded-lg overflow-hidden border-2 transition-all ${
-        selected ? 'border-primary ring-2 ring-primary ring-opacity-50' : 'border-transparent hover:border-primary/50'
+      className={`group relative aspect-video w-full rounded-lg overflow-hidden border-2 transition-all duration-200 ease-in-out ${
+        selected ? 'border-primary ring-2 ring-primary ring-offset-2 ring-offset-background' : 'border-gray-700 hover:border-primary/70'
       }`}
       title={background.name}
     >
@@ -381,12 +538,13 @@ function BackgroundButton({
         src={background.src}
         alt={background.name}
         fill
-        className="object-cover"
+        className="object-cover group-hover:scale-105 transition-transform duration-200 ease-in-out"
+        unoptimized
       />
-      <div className={`absolute inset-0 flex items-end justify-start p-2 bg-gradient-to-t from-black/50 to-transparent transition-opacity ${
+      <div className={`absolute inset-0 flex items-end justify-start p-1.5 bg-gradient-to-t from-black/70 to-transparent transition-opacity duration-200 ease-in-out ${
         selected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
       }`}>
-        <span className="text-xs text-white font-medium">{background.name}</span>
+        <span className="text-xs text-white font-medium truncate">{background.name}</span>
       </div>
     </button>
   );

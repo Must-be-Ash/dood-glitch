@@ -10,14 +10,37 @@ import html2canvas from 'html2canvas';
 
 // These would be your actual background images
 const DEFAULT_BACKGROUNDS = [
-  { name: 'Light 1', src: '/light1.png' },
-  { name: 'Light 2', src: '/light2.png' },
-  { name: 'Moon', src: '/moon.png' },
-  { name: 'Rocker', src: '/rocker.png' },
-  { name: 'Launch', src: '/launch.png' },
-  { name: 'Jump', src: '/jump.png' },
-  { name: 'LOF', src: '/lof.png' },
-  { name: 'Button', src: '/button.png' },
+  // Solid Colors
+  { name: 'Blue', src: '/bg/blue.png', category: 'Solid Colors' },
+  { name: 'Gray', src: '/bg/gray.png', category: 'Solid Colors' },
+  { name: 'Green', src: '/bg/green.png', category: 'Solid Colors' },
+  { name: 'Orange', src: '/bg/orange.png', category: 'Solid Colors' },
+  { name: 'Pink', src: '/bg/pink.png', category: 'Solid Colors' },
+  { name: 'Purple', src: '/bg/purple.png', category: 'Solid Colors' },
+  { name: 'Yellow', src: '/bg/yellow.png', category: 'Solid Colors' },
+  
+  // Gradients
+  { name: 'Blue-Green', src: '/bg/b-g.png', category: 'Gradients' },
+  { name: 'Green-Yellow', src: '/bg/g-y.png', category: 'Gradients' },
+  { name: 'Orange-Yellow', src: '/bg/o-y.png', category: 'Gradients' },
+  { name: 'Purple-Blue', src: '/bg/p-b.png', category: 'Gradients' },
+  { name: 'Purple-Yellow', src: '/bg/p-y.png', category: 'Gradients' },
+  
+  // Special Effects
+  { name: 'Addi', src: '/bg/addi.png', category: 'Special Effects' },
+  { name: 'Cube', src: '/bg/cube.png', category: 'Special Effects' },
+  { name: 'Halo', src: '/bg/halo.png', category: 'Special Effects' },
+  { name: 'Light 1', src: '/bg/light1.png', category: 'Special Effects' },
+  { name: 'Light 2', src: '/bg/light2.png', category: 'Special Effects' },
+  
+  // Dynamic
+  { name: 'Button', src: '/bg/button.png', category: 'Dynamic' },
+  { name: 'Jump', src: '/bg/jump.png', category: 'Dynamic' },
+  { name: 'Launch', src: '/bg/launch.png', category: 'Dynamic' },
+  { name: 'LOF', src: '/bg/lof.png', category: 'Dynamic' },
+  { name: 'Moon', src: '/bg/moon.png', category: 'Dynamic' },
+  { name: 'Rocker', src: '/bg/rocker.png', category: 'Dynamic' },
+  { name: 'Sky', src: '/bg/sky.png', category: 'Dynamic' },
 ];
 
 export function BackgroundChanger() {
@@ -209,24 +232,35 @@ export function BackgroundChanger() {
       {removedBgImage && (
         <Card className="p-6">
           <h3 className="text-lg font-semibold mb-4">Background Library</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-            {DEFAULT_BACKGROUNDS.map((bg) => (
-              <button
-                key={bg.src}
-                onClick={() => setSelectedBackground(bg.src)}
-                className={`relative aspect-video w-full rounded-lg overflow-hidden border-2 transition-all ${
-                  selectedBackground === bg.src ? 'border-primary' : 'border-transparent'
-                }`}
-              >
-                <Image
-                  src={bg.src}
-                  alt={bg.name}
-                  fill
-                  className="object-cover"
-                />
-              </button>
+          <Tabs defaultValue="all" className="w-full mb-6">
+            <TabsList className="grid w-full grid-cols-5">
+              <TabsTrigger value="all">All</TabsTrigger>
+              <TabsTrigger value="solid">Solid Colors</TabsTrigger>
+              <TabsTrigger value="gradients">Gradients</TabsTrigger>
+              <TabsTrigger value="effects">Special Effects</TabsTrigger>
+              <TabsTrigger value="dynamic">Dynamic</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="all" className="mt-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                {DEFAULT_BACKGROUNDS.map((bg) => (
+                  <BackgroundButton key={bg.src} background={bg} selected={selectedBackground === bg.src} onSelect={setSelectedBackground} />
+                ))}
+              </div>
+            </TabsContent>
+            
+            {['solid', 'gradients', 'effects', 'dynamic'].map((category) => (
+              <TabsContent key={category} value={category} className="mt-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                  {DEFAULT_BACKGROUNDS
+                    .filter(bg => bg.category.toLowerCase().includes(category.replace('solid', 'solid colors')))
+                    .map((bg) => (
+                      <BackgroundButton key={bg.src} background={bg} selected={selectedBackground === bg.src} onSelect={setSelectedBackground} />
+                    ))}
+                </div>
+              </TabsContent>
             ))}
-          </div>
+          </Tabs>
         </Card>
       )}
 
@@ -323,5 +357,37 @@ export function BackgroundChanger() {
         </div>
       )}
     </div>
+  );
+}
+
+function BackgroundButton({ 
+  background, 
+  selected, 
+  onSelect 
+}: { 
+  background: typeof DEFAULT_BACKGROUNDS[0], 
+  selected: boolean, 
+  onSelect: (src: string) => void 
+}) {
+  return (
+    <button
+      onClick={() => onSelect(background.src)}
+      className={`relative aspect-video w-full rounded-lg overflow-hidden border-2 transition-all ${
+        selected ? 'border-primary ring-2 ring-primary ring-opacity-50' : 'border-transparent hover:border-primary/50'
+      }`}
+      title={background.name}
+    >
+      <Image
+        src={background.src}
+        alt={background.name}
+        fill
+        className="object-cover"
+      />
+      <div className={`absolute inset-0 flex items-end justify-start p-2 bg-gradient-to-t from-black/50 to-transparent transition-opacity ${
+        selected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+      }`}>
+        <span className="text-xs text-white font-medium">{background.name}</span>
+      </div>
+    </button>
   );
 } 

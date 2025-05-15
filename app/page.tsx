@@ -64,6 +64,14 @@ export default function Home() {
             imageSrc="/sticker-dood.png"
             delay={0.8}
           />
+          <OptionCard 
+            title="DoodCatch"
+            href="https://catch.porty.app/"
+            imageSrc="/dood-token.MP4"
+            delay={1.0}
+            isVideo
+            isExternal
+          />
         </motion.div>
       </div>
       <div className="mt-24 sm:mt-12">
@@ -73,12 +81,28 @@ export default function Home() {
   )
 }
 
-function OptionCard({ title, href, imageSrc, delay }: { 
+function OptionCard({ 
+  title, 
+  href, 
+  imageSrc, 
+  delay,
+  isVideo = false,
+  isExternal = false 
+}: { 
   title: string; 
   href: string; 
   imageSrc: string;
   delay: number;
+  isVideo?: boolean;
+  isExternal?: boolean;
 }) {
+  const LinkComponent = isExternal ? 'a' : Link;
+  const linkProps = isExternal ? { 
+    href,
+    target: "_blank",
+    rel: "noopener noreferrer"
+  } : { href };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -89,22 +113,33 @@ function OptionCard({ title, href, imageSrc, delay }: {
         boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)"
       }}
     >
-      <Link 
-        href={href}
+      <LinkComponent 
+        {...linkProps}
         className="block h-full overflow-hidden rounded-xl border border-gray-700 bg-gray-900/50 backdrop-blur-sm transition-all"
       >
         <div className="aspect-video w-full relative overflow-hidden">
-          <Image 
-            src={imageSrc} 
-            alt={title} 
-            fill
-            className="object-cover transition-transform duration-300 group-hover:scale-110"
-          />
+          {isVideo ? (
+            <video
+              src={imageSrc}
+              autoPlay
+              loop
+              muted
+              playsInline
+              className="object-cover w-full h-full"
+            />
+          ) : (
+            <Image 
+              src={imageSrc} 
+              alt={title} 
+              fill
+              className="object-cover transition-transform duration-300 group-hover:scale-110"
+            />
+          )}
         </div>
         <div className="p-4">
           <h3 className="text-xl font-semibold text-center">{title}</h3>
         </div>
-      </Link>
+      </LinkComponent>
     </motion.div>
   )
 }

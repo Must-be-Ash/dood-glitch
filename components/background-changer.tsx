@@ -102,6 +102,7 @@ export function BackgroundChanger() {
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const initialPinchDistance = useRef<number | null>(null); // For pinch-to-zoom
   
   useEffect(() => {
     if (mode === 'banner' && selectedBackground) {
@@ -195,6 +196,44 @@ export function BackgroundChanger() {
 
   const handleMouseUp = () => {
     setIsDragging(false);
+    initialPinchDistance.current = null; // Reset for pinch
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (mode === 'banner' && foregroundRef.current && foregroundRef.current.contains(e.target as Node)) {
+      if (e.touches.length === 1) {
+        setIsDragging(true);
+        setDragStart({ x: e.touches[0].clientX - position.x, y: e.touches[0].clientY - position.y });
+      } else if (e.touches.length === 2) {
+        e.preventDefault(); // Prevent page zoom
+        initialPinchDistance.current = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+      }
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (mode === 'banner') {
+      if (isDragging && e.touches.length === 1) {
+        setPosition({ x: e.touches[0].clientX - dragStart.x, y: e.touches[0].clientY - dragStart.y });
+      } else if (e.touches.length === 2 && initialPinchDistance.current !== null) {
+        e.preventDefault(); // Prevent page zoom
+        const currentPinchDistance = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        const newScale = scale * (currentPinchDistance / initialPinchDistance.current);
+        setScale(Math.max(0.1, Math.min(5, newScale)));
+        initialPinchDistance.current = currentPinchDistance; // Update for continuous scaling
+      }
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setIsDragging(false);
+    initialPinchDistance.current = null;
   };
 
   const handleWheel = (e: React.WheelEvent) => {
@@ -434,19 +473,20 @@ export function BackgroundChanger() {
             <h3 className="text-lg font-semibold">Preview & Adjust</h3>
             <div 
               ref={previewRef}
-              className={`relative overflow-hidden bg-gray-700 ${
+              className={`relative overflow-hidden bg-gray-700 touch-none select-none ${
                 mode === 'pfp' ? 'w-full aspect-square' 
-                                : 'w-full max-w-[1500px] mx-auto aspect-[3/1]' // Enforce 3:1 for banner preview
+                                : 'w-full max-w-[1500px] mx-auto aspect-[3/1]'
               }`}
-              onMouseDown={handleMouseDown}
+              onMouseDown={handleMouseDown} 
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
               onMouseLeave={handleMouseUp}
-              onWheel={handleWheel}
-              style={{
-                // Remove explicit width/maxWidth from here for banner as className handles it
-                cursor: mode === 'banner' && isDragging ? 'grabbing' : (mode === 'banner' ? 'grab' : 'default')
-              }}
+              onWheel={handleWheel} 
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              onTouchCancel={handleTouchEnd}
+              style={{ cursor: mode === 'banner' && isDragging ? 'grabbing' : (mode === 'banner' ? 'grab' : 'default') }}
             >
               <div className="absolute inset-0">
                 <Image
@@ -456,30 +496,20 @@ export function BackgroundChanger() {
                   className="object-cover"
                   style={{ objectPosition: mode === 'banner' ? `center ${backgroundYOffset}%` : 'center center'}}
                   unoptimized
-                  priority // Eager load background for better preview
+                  priority 
                 />
               </div>
               <div
-                ref={foregroundRef}
+                ref={foregroundRef} 
                 className="absolute"
                 style={{
-                  transform: mode === 'banner' 
-                    ? `translate(${position.x}px, ${position.y}px) scale(${scale})`
-                    : 'none',
+                  transform: mode === 'banner' ? `translate(${position.x}px, ${position.y}px) scale(${scale})` : 'none',
                   transition: isDragging ? 'none' : 'transform 0.1s',
-                  pointerEvents: mode === 'banner' ? 'auto' : 'none', // Allow drag only in banner mode
+                  pointerEvents: mode === 'banner' ? 'auto' : 'none',
+                  width: (mode === 'banner' || (mode ==='pfp' && !originalImageDimensions)) ? '300px' : (originalImageDimensions ? `${originalImageDimensions.width}px` : '300px'),
+                  height: (mode === 'banner' || (mode ==='pfp' && !originalImageDimensions)) ? '300px' : (originalImageDimensions ? `${originalImageDimensions.height}px` : '300px'),
                   ...(mode === 'pfp' && originalImageDimensions ? {
-                    width: '100%',
-                    height: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  } : {
-                    width: '300px',
-                    height: '300px',
-                  }),
-                  ...(mode === 'pfp' && removedBgImage && originalImageDimensions ? {
-                    aspectRatio: `${originalImageDimensions.width} / ${originalImageDimensions.height}`,
+                     width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' 
                   } : {})
                 }}
               >
@@ -488,48 +518,27 @@ export function BackgroundChanger() {
                   alt="Your character"
                   width={mode === 'pfp' && originalImageDimensions ? originalImageDimensions.width : 300}
                   height={mode === 'pfp' && originalImageDimensions ? originalImageDimensions.height : 300}
-                  className={`pointer-events-none ${mode === 'pfp' ? 'object-contain max-w-full max-h-full' : ''}`}
+                  className={`pointer-events-none ${mode === 'pfp' ? 'object-contain max-w-full max-h-full' : 'object-contain'}`}
                   unoptimized
-                  priority // Eager load foreground for better preview
+                  priority 
                 />
               </div>
             </div>
             <div className="flex gap-4">
               {mode === 'banner' && (
-                <Button onClick={() => {
-                  setScale(1);
-                  setPosition({ x: 0, y: 0 });
-                  setBackgroundYOffset(50);
-                }}>
+                <Button onClick={() => { setScale(1); setPosition({ x: 0, y: 0 }); setBackgroundYOffset(50);}}>
                   Reset Position
                 </Button>
               )}
               <Button onClick={handleDownload} disabled={loading}>
-                {loading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
-                    Downloading...
-                  </>
-                ) : (
-                  <>
-                    <Download className="w-4 h-4 mr-2" />
-                    Download
-                  </>
-                )}
+                {loading ? (<><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>Downloading...</>) : (<><Download className="w-4 h-4 mr-2" />Download</>)}
               </Button>
             </div>
           </div>
         </Card>
       )}
 
-      {loading && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-          <div className="bg-background p-8 rounded-lg flex items-center gap-4 shadow-2xl">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            <span className="text-lg">Processing image...</span>
-          </div>
-        </div>
-      )}
+      {loading && (<div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50"><div className="bg-background p-8 rounded-lg flex items-center gap-4 shadow-2xl"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div><span className="text-lg">Processing image...</span></div></div>)}
     </div>
   );
 }

@@ -67,7 +67,7 @@ export default function Home() {
           <OptionCard 
             title="Background"
             href="/bg"
-            imageSrc="/moon.png"
+            imageSrc="/bg/moon.png"
             delay={1.0}
           />
           <OptionCard 

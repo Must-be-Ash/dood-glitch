@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
-import { Upload, X, Download, Image as ImageIcon, Rows } from 'lucide-react';
+import { Upload, X, Download, Image as ImageIcon, Rows, ZoomIn } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -99,6 +99,7 @@ export function BackgroundChanger() {
   const [isBgVerticallyScrollable, setIsBgVerticallyScrollable] = useState(false);
   const [loading, setLoading] = useState(false);
   const [scale, setScale] = useState(1);
+  const [pfpScale, setPfpScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
@@ -114,6 +115,10 @@ export function BackgroundChanger() {
     } else {
       setIsBgVerticallyScrollable(false);
     }
+    // Reset scales when mode changes
+    setScale(1);
+    setPfpScale(1);
+    setPosition({ x:0, y:0 });
   }, [mode, selectedBackground]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -435,7 +440,7 @@ export function BackgroundChanger() {
       {/* Mode Toggle & Background Y Offset Slider */}
       {removedBgImage && selectedBackground && (
         <div className="space-y-4">
-          <Tabs defaultValue="pfp" className="w-full" onValueChange={(value) => { setMode(value as 'pfp' | 'banner'); setBackgroundYOffset(50); /* Reset on mode change */ }}>
+          <Tabs defaultValue="pfp" className="w-full" onValueChange={(value) => { setMode(value as 'pfp' | 'banner'); setBackgroundYOffset(50); setPfpScale(1); setScale(1); setPosition({x:0, y:0}); /* Reset on mode change */ }}>
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="pfp">Profile Picture</TabsTrigger>
               <TabsTrigger value="banner">Banner</TabsTrigger>
@@ -460,6 +465,24 @@ export function BackgroundChanger() {
                   disabled={!isBgVerticallyScrollable}
                 />
                  {!isBgVerticallyScrollable && <p className="text-xs text-muted-foreground text-center">This background fits perfectly, no vertical adjustment needed.</p>}
+              </div>
+            </Card>
+          )}
+          {mode === 'pfp' && (
+            <Card className="p-4">
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <label htmlFor="pfp-scale" className="text-sm font-medium flex items-center gap-2">
+                    <ZoomIn className="w-4 h-4" /> Character Size
+                  </label>
+                  <span className="text-sm text-muted-foreground">{Math.round(pfpScale * 100)}%</span>
+                </div>
+                <Slider
+                  id="pfp-scale"
+                  value={[pfpScale]}
+                  onValueChange={(value) => setPfpScale(value[0])}
+                  min={0.5} max={2} step={0.01}
+                />
               </div>
             </Card>
           )}
@@ -501,16 +524,14 @@ export function BackgroundChanger() {
               </div>
               <div
                 ref={foregroundRef} 
-                className="absolute"
+                className={`absolute ${mode === 'pfp' ? 'w-full h-full flex items-center justify-center' : ''}`}
                 style={{
-                  transform: mode === 'banner' ? `translate(${position.x}px, ${position.y}px) scale(${scale})` : 'none',
+                  transform: mode === 'banner' ? `translate(${position.x}px, ${position.y}px) scale(${scale})` 
+                             : (mode === 'pfp' ? `scale(${pfpScale})` : 'none'),
                   transition: isDragging ? 'none' : 'transform 0.1s',
                   pointerEvents: mode === 'banner' ? 'auto' : 'none',
                   width: (mode === 'banner' || (mode ==='pfp' && !originalImageDimensions)) ? '300px' : (originalImageDimensions ? `${originalImageDimensions.width}px` : '300px'),
                   height: (mode === 'banner' || (mode ==='pfp' && !originalImageDimensions)) ? '300px' : (originalImageDimensions ? `${originalImageDimensions.height}px` : '300px'),
-                  ...(mode === 'pfp' && originalImageDimensions ? {
-                     width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' 
-                  } : {})
                 }}
               >
                 <Image
@@ -528,6 +549,11 @@ export function BackgroundChanger() {
               {mode === 'banner' && (
                 <Button onClick={() => { setScale(1); setPosition({ x: 0, y: 0 }); setBackgroundYOffset(50);}}>
                   Reset Position
+                </Button>
+              )}
+              {mode === 'pfp' && (
+                <Button onClick={() => { setPfpScale(1);}}>
+                  Reset Size
                 </Button>
               )}
               <Button onClick={handleDownload} disabled={loading}>

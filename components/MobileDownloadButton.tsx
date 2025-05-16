@@ -23,6 +23,7 @@ function triggerDownload(blob: Blob, fileName: string) {
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
+  console.log("Download triggered:", fileName);
 }
 
 export function MobileDownloadButton({
@@ -36,6 +37,7 @@ export function MobileDownloadButton({
   const handleMobileDownload = async () => {
     setIsDownloadingMobile(true);
     setLoading(true); 
+    console.log("Mobile download started. Mode:", mode);
 
     try {
       const previewElement = previewRef.current;
@@ -46,38 +48,59 @@ export function MobileDownloadButton({
         return;
       }
 
+      console.log("Attempting html2canvas capture for mobile...");
       const capturedCanvas = await html2canvas(previewElement, {
         useCORS: true,
         allowTaint: true,
         backgroundColor: null,
-        scale: 1, // Key change: Reduced scale for mobile
+        scale: 1, // Keep scale at 1 for mobile to minimize processing
+        logging: true, // Enable html2canvas logging for more insight
+        imageTimeout: 15000, // Increase timeout for image loading within html2canvas
       });
+      console.log("html2canvas capture complete for mobile. Captured canvas:", capturedCanvas.width, "x", capturedCanvas.height);
 
       let finalBlob: Blob;
       const fileName = `porty-${mode}-mobile-${Date.now()}.png`;
 
       if (mode === 'banner') {
-        const targetDownloadWidth = 1500; 
-        const targetDownloadHeight = 500; 
-        
+        const targetWidth = 1200; // Reduced target width for mobile banner
+        const targetHeight = 400; // Reduced target height (3:1)
+
         const outputCanvas = document.createElement('canvas');
-        // For mobile, let's try outputting at 1x of target to reduce processing
-        outputCanvas.width = targetDownloadWidth; 
-        outputCanvas.height = targetDownloadHeight;
+        outputCanvas.width = targetWidth; 
+        outputCanvas.height = targetHeight;
         
         const ctx = outputCanvas.getContext('2d');
-        if (!ctx) throw new Error("Failed to get output canvas context for mobile banner");
-
+        if (!ctx) {
+          console.error("Failed to get output canvas context for mobile banner");
+          throw new Error("Failed to get output canvas context for mobile banner");
+        }
+        console.log("Drawing captured mobile banner to output canvas:", outputCanvas.width, "x", outputCanvas.height);
         ctx.drawImage(capturedCanvas, 0, 0, outputCanvas.width, outputCanvas.height);
 
         finalBlob = await new Promise<Blob>((resolve, reject) => {
-          outputCanvas.toBlob(b => b ? resolve(b) : reject(new Error("Final canvas toBlob failed for mobile banner")), 'image/png');
+          outputCanvas.toBlob(b => {
+            if (b) {
+              console.log("Mobile banner blob created, size:", b.size);
+              resolve(b);
+            } else {
+              console.error("Final canvas toBlob failed for mobile banner (blob is null)");
+              reject(new Error("Final canvas toBlob failed for mobile banner"));
+            }
+          }, 'image/png');
         });
       } else { // PFP mode
-        // For PFP, the capturedCanvas (at 1x scale of preview) is used directly.
-        // If preview is, say, 400x400, capturedCanvas will be 400x400.
+        console.log("Creating blob for mobile PFP directly from captured canvas.");
         finalBlob = await new Promise<Blob>((resolve, reject) => {
-          capturedCanvas.toBlob(b => b ? resolve(b) : reject(new Error("Captured canvas toBlob failed for mobile PFP")), 'image/png');
+          capturedCanvas.toBlob(b => {
+            if (b) {
+              console.log("Mobile PFP blob created, size:", b.size);
+              resolve(b);
+            } else {
+              console.error("Captured canvas toBlob failed for mobile PFP (blob is null)");
+              reject(new Error("Captured canvas toBlob failed for mobile PFP"));
+            }
+          }, 'image/png');
         });
       }
       triggerDownload(finalBlob, fileName);
@@ -87,6 +110,7 @@ export function MobileDownloadButton({
     } finally {
       setIsDownloadingMobile(false);
       setLoading(false);
+      console.log("Mobile download process finished.");
     }
   };
 

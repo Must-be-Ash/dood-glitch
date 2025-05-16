@@ -61,11 +61,14 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning className="dark">
+      <head>
+        <script src="js/canvas-to-blob.min.js"></script>
+      </head>
       <body className={inter.className} suppressHydrationWarning>
-        <ThemeProvider 
-          attribute="class" 
-          defaultTheme="dark" 
-          enableSystem={false} 
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem={false}
           forcedTheme="dark"
           disableTransitionOnChange
         >
@@ -75,5 +78,5 @@ export default function RootLayout({
         </ThemeProvider>
       </body>
     </html>
-  )
+  );
 }

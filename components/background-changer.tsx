@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
 import html2canvas from 'html2canvas';
+import { MobileDownloadButton } from './MobileDownloadButton';
 
 // Helper function to load an image
 function loadImage(src: string): Promise<HTMLImageElement> {
@@ -104,7 +105,15 @@ export function BackgroundChanger() {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const initialPinchDistance = useRef<number | null>(null); // For pinch-to-zoom
+  const [isMobileView, setIsMobileView] = useState(false);
   
+  useEffect(() => {
+    const checkMobile = () => setIsMobileView(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   useEffect(() => {
     if (mode === 'banner' && selectedBackground) {
       loadImage(selectedBackground).then(img => {
@@ -556,9 +565,18 @@ export function BackgroundChanger() {
                   Reset Size
                 </Button>
               )}
-              <Button onClick={handleDownload} disabled={loading}>
-                {loading ? (<><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>Downloading...</>) : (<><Download className="w-4 h-4 mr-2" />Download</>)}
-              </Button>
+              {isMobileView ? (
+                <MobileDownloadButton 
+                  mode={mode} 
+                  previewRef={previewRef} 
+                  setLoading={setLoading} 
+                  loading={loading}
+                />
+              ) : (
+                <Button onClick={handleDownload} disabled={loading}>
+                  {loading ? (<><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>Processing...</>) : (<><Download className="w-4 h-4 mr-2" />Download</>)}
+                </Button>
+              )}
             </div>
           </div>
         </Card>

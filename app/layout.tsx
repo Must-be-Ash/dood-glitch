@@ -62,7 +62,10 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className="dark">
       <head>
-        <script src="js/canvas-to-blob.min.js"></script>
+        <script
+          src="
+https://blueimp.github.io/JavaScript-Canvas-to-Blob/js/canvas-to-blob.js"
+        ></script>
       </head>
       <body className={inter.className} suppressHydrationWarning>
         <ThemeProvider

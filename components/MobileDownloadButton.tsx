@@ -10,8 +10,6 @@ interface MobileDownloadButtonProps {
   previewRef: React.RefObject<HTMLDivElement | null>;
   setLoading: (loading: boolean) => void;
   loading: boolean;
-  // Add other necessary props if they are used by the logic below
-  // For now, keeping it simple as html2canvas captures the whole previewRef
 }
 
 function triggerDownload(blob: Blob, fileName: string) {
@@ -23,7 +21,6 @@ function triggerDownload(blob: Blob, fileName: string) {
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
-  console.log("Download triggered:", fileName);
 }
 
 export function MobileDownloadButton({
@@ -36,60 +33,92 @@ export function MobileDownloadButton({
 
   const handleMobileDownload = async () => {
     setIsDownloadingMobile(true);
-    setLoading(true); 
-    console.log("Mobile download started. Mode:", mode);
+    setLoading(true);
 
     try {
       const previewElement = previewRef.current;
       if (!previewElement) {
-        console.error("Preview reference not available for mobile download.");
-        setIsDownloadingMobile(false);
-        setLoading(false);
+        console.error("Preview reference not available");
         return;
       }
 
-      console.log("Attempting html2canvas capture for mobile (scale: 1)...");
+      // Get the preview element's dimensions
+      const rect = previewElement.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+
+      // For PFP mode, we want a square output
+      const outputSize = mode === 'pfp' ? Math.max(width, height) : width;
+      const scale = mode === 'pfp' ? 2 : 1; // Higher scale for PFP for better quality
+
+      // Temporarily adjust preview element for capture
+      const originalStyle = previewElement.style.cssText;
+      if (mode === 'pfp') {
+        // Center the content for PFP mode
+        previewElement.style.display = 'flex';
+        previewElement.style.alignItems = 'center';
+        previewElement.style.justifyContent = 'center';
+      }
+
       const capturedCanvas = await html2canvas(previewElement, {
         useCORS: true,
         allowTaint: true,
         backgroundColor: null,
-        scale: 1, // Minimal scale for mobile
-        logging: true, 
-        imageTimeout: 15000, 
-      });
-      console.log("html2canvas capture complete for mobile. Captured canvas:", capturedCanvas.width, "x", capturedCanvas.height);
-
-      const fileName = `porty-${mode}-mobile-${Date.now()}.png`;
-
-      // For both PFP and Banner on mobile, use the capturedCanvas directly.
-      // This means the downloaded image will have the exact pixel dimensions of the preview element on screen.
-      // This is a compromise for reliability on mobile.
-      console.log(`Creating blob for mobile ${mode} directly from captured canvas.`);
-      const finalBlob = await new Promise<Blob>((resolve, reject) => {
-        capturedCanvas.toBlob(b => {
-          if (b) {
-            console.log(`Mobile ${mode} blob created, size:`, b.size);
-            resolve(b);
-          } else {
-            console.error(`Captured canvas toBlob failed for mobile ${mode} (blob is null)`);
-            reject(new Error(`Captured canvas toBlob failed for mobile ${mode}`));
+        width: outputSize,
+        height: mode === 'pfp' ? outputSize : height,
+        scale: scale,
+        logging: false,
+        onclone: (clonedDoc, element) => {
+          // Ensure the cloned element maintains the same dimensions
+          element.style.width = `${outputSize}px`;
+          if (mode === 'pfp') {
+            element.style.height = `${outputSize}px`;
           }
-        }, 'image/png');
+        }
       });
-      
-      triggerDownload(finalBlob, fileName);
+
+      // Restore original style
+      previewElement.style.cssText = originalStyle;
+
+      // Create a new canvas for the final output
+      const finalCanvas = document.createElement('canvas');
+      const ctx = finalCanvas.getContext('2d');
+      if (!ctx) throw new Error('Could not get canvas context');
+
+      // Set final canvas dimensions
+      finalCanvas.width = mode === 'pfp' ? 1000 : 1500; // Standard sizes
+      finalCanvas.height = mode === 'pfp' ? 1000 : 500;
+
+      // Draw the captured content onto the final canvas
+      ctx.drawImage(
+        capturedCanvas,
+        0, 0, capturedCanvas.width, capturedCanvas.height,
+        0, 0, finalCanvas.width, finalCanvas.height
+      );
+
+      const finalBlob = await new Promise<Blob>((resolve, reject) => {
+        finalCanvas.toBlob(
+          (blob) => {
+            if (blob) resolve(blob);
+            else reject(new Error('Canvas to Blob conversion failed'));
+          },
+          'image/png',
+          1.0
+        );
+      });
+
+      triggerDownload(finalBlob, `porty-${mode}-mobile-${Date.now()}.png`);
 
     } catch (error) {
-      console.error('Error downloading image on mobile:', error);
+      console.error('Error in mobile download:', error);
     } finally {
       setIsDownloadingMobile(false);
       setLoading(false);
-      console.log("Mobile download process finished.");
     }
   };
 
   return (
-    <Button onClick={handleMobileDownload} disabled={isDownloadingMobile || loading}> 
+    <Button onClick={handleMobileDownload} disabled={isDownloadingMobile || loading}>
       {isDownloadingMobile ? (
         <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>Processing...</>
       ) : (

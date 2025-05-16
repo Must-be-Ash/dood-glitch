@@ -536,14 +536,14 @@ export function BackgroundChanger() {
               </div>
               <div
                 ref={foregroundRef} 
-                className={`absolute ${mode === 'pfp' ? 'w-full h-full flex items-center justify-center' : ''}`}
+                className={`absolute ${mode === 'pfp' ? 'inset-0 flex items-center justify-center' : ''}`}
                 style={{
                   transform: mode === 'banner' ? `translate(${position.x}px, ${position.y}px) scale(${scale})` 
                              : (mode === 'pfp' ? `scale(${pfpScale})` : 'none'),
                   transition: isDragging ? 'none' : 'transform 0.1s',
                   pointerEvents: mode === 'banner' ? 'auto' : 'none',
-                  width: (mode === 'banner' || (mode ==='pfp' && !originalImageDimensions)) ? '300px' : (originalImageDimensions ? `${originalImageDimensions.width}px` : '300px'),
-                  height: (mode === 'banner' || (mode ==='pfp' && !originalImageDimensions)) ? '300px' : (originalImageDimensions ? `${originalImageDimensions.height}px` : '300px'),
+                  width: mode === 'banner' ? '300px' : '100%',
+                  height: mode === 'banner' ? '300px' : '100%',
                 }}
               >
                 <Image
@@ -551,7 +551,7 @@ export function BackgroundChanger() {
                   alt="Your character"
                   width={mode === 'pfp' && originalImageDimensions ? originalImageDimensions.width : 300}
                   height={mode === 'pfp' && originalImageDimensions ? originalImageDimensions.height : 300}
-                  className={`pointer-events-none ${mode === 'pfp' ? 'object-contain max-w-full max-h-full' : 'object-contain'}`}
+                  className={`pointer-events-none ${mode === 'pfp' ? 'object-contain w-auto h-auto max-w-full max-h-full' : 'object-contain'}`}
                   unoptimized
                   priority 
                 />

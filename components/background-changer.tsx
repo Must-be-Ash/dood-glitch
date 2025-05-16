@@ -82,9 +82,14 @@ const DEFAULT_BACKGROUNDS = [
   { name: 'Jump', src: '/bg/jump.png', category: 'Dynamic' },
   { name: 'Launch', src: '/bg/launch.png', category: 'Dynamic' },
   { name: 'LOF', src: '/bg/lof.png', category: 'Dynamic' },
+  { name: 'LOF1', src: '/bg/lof1.png', category: 'Dynamic' },
+  { name: 'LOF2', src: '/bg/lof2.png', category: 'Dynamic' },
+  { name: 'LOF3', src: '/bg/lof3.png', category: 'Dynamic' },
+  { name: 'Doodles', src: '/bg/doodles.png', category: 'Dynamic' },
   { name: 'Moon', src: '/bg/moon.png', category: 'Dynamic' },
   { name: 'Rocker', src: '/bg/rocker.png', category: 'Dynamic' },
   { name: 'Sky', src: '/bg/sky.png', category: 'Dynamic' },
+  
 ];
 
 export function BackgroundChanger() {

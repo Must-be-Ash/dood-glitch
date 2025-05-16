@@ -1,5 +1,6 @@
 "use client"
 
+import React from 'react'
 import { GlitchText } from "@/components/glitch-text"
 import Link from "next/link"
 import Image from "next/image"
@@ -78,6 +79,16 @@ export default function Home() {
             isVideo
             isExternal
           />
+          <OptionCard 
+            title={<div className="flex flex-col">
+              <span>Memorizer</span>
+              <span className="text-xs text-gray-400">by @tzx0318</span>
+            </div>}
+            href="https://doodle-memorizer.vercel.app/"
+            imageSrc="/memorizer.png"
+            delay={1.4}
+            isExternal
+          />
         </motion.div>
       </div>
       <div className="mt-24 sm:mt-12">
@@ -95,7 +106,7 @@ function OptionCard({
   isVideo = false,
   isExternal = false 
 }: { 
-  title: string; 
+  title: string | React.ReactNode; 
   href: string; 
   imageSrc: string;
   delay: number;
@@ -136,7 +147,7 @@ function OptionCard({
           ) : (
           <Image 
             src={imageSrc} 
-            alt={title} 
+            alt={title as string} 
             fill
             className="object-cover transition-transform duration-300 group-hover:scale-110"
           />

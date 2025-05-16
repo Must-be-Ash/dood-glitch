@@ -520,7 +520,10 @@ export function BackgroundChanger() {
               onTouchCancel={handleTouchEnd}
               style={{ cursor: mode === 'banner' && isDragging ? 'grabbing' : (mode === 'banner' ? 'grab' : 'default') }}
             >
-              <div className="absolute inset-0">
+              <div 
+                className="absolute inset-0" 
+                style={{ width: '100%', height: '100%' }}
+              >
                 <Image
                   src={selectedBackground}
                   alt="Background"

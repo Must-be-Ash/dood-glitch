@@ -48,61 +48,35 @@ export function MobileDownloadButton({
         return;
       }
 
-      console.log("Attempting html2canvas capture for mobile...");
+      console.log("Attempting html2canvas capture for mobile (scale: 1)...");
       const capturedCanvas = await html2canvas(previewElement, {
         useCORS: true,
         allowTaint: true,
         backgroundColor: null,
-        scale: 1, // Keep scale at 1 for mobile to minimize processing
-        logging: true, // Enable html2canvas logging for more insight
-        imageTimeout: 15000, // Increase timeout for image loading within html2canvas
+        scale: 1, // Minimal scale for mobile
+        logging: true, 
+        imageTimeout: 15000, 
       });
       console.log("html2canvas capture complete for mobile. Captured canvas:", capturedCanvas.width, "x", capturedCanvas.height);
 
-      let finalBlob: Blob;
       const fileName = `porty-${mode}-mobile-${Date.now()}.png`;
 
-      if (mode === 'banner') {
-        const targetWidth = 1200; // Reduced target width for mobile banner
-        const targetHeight = 400; // Reduced target height (3:1)
-
-        const outputCanvas = document.createElement('canvas');
-        outputCanvas.width = targetWidth; 
-        outputCanvas.height = targetHeight;
-        
-        const ctx = outputCanvas.getContext('2d');
-        if (!ctx) {
-          console.error("Failed to get output canvas context for mobile banner");
-          throw new Error("Failed to get output canvas context for mobile banner");
-        }
-        console.log("Drawing captured mobile banner to output canvas:", outputCanvas.width, "x", outputCanvas.height);
-        ctx.drawImage(capturedCanvas, 0, 0, outputCanvas.width, outputCanvas.height);
-
-        finalBlob = await new Promise<Blob>((resolve, reject) => {
-          outputCanvas.toBlob(b => {
-            if (b) {
-              console.log("Mobile banner blob created, size:", b.size);
-              resolve(b);
-            } else {
-              console.error("Final canvas toBlob failed for mobile banner (blob is null)");
-              reject(new Error("Final canvas toBlob failed for mobile banner"));
-            }
-          }, 'image/png');
-        });
-      } else { // PFP mode
-        console.log("Creating blob for mobile PFP directly from captured canvas.");
-        finalBlob = await new Promise<Blob>((resolve, reject) => {
-          capturedCanvas.toBlob(b => {
-            if (b) {
-              console.log("Mobile PFP blob created, size:", b.size);
-              resolve(b);
-            } else {
-              console.error("Captured canvas toBlob failed for mobile PFP (blob is null)");
-              reject(new Error("Captured canvas toBlob failed for mobile PFP"));
-            }
-          }, 'image/png');
-        });
-      }
+      // For both PFP and Banner on mobile, use the capturedCanvas directly.
+      // This means the downloaded image will have the exact pixel dimensions of the preview element on screen.
+      // This is a compromise for reliability on mobile.
+      console.log(`Creating blob for mobile ${mode} directly from captured canvas.`);
+      const finalBlob = await new Promise<Blob>((resolve, reject) => {
+        capturedCanvas.toBlob(b => {
+          if (b) {
+            console.log(`Mobile ${mode} blob created, size:`, b.size);
+            resolve(b);
+          } else {
+            console.error(`Captured canvas toBlob failed for mobile ${mode} (blob is null)`);
+            reject(new Error(`Captured canvas toBlob failed for mobile ${mode}`));
+          }
+        }, 'image/png');
+      });
+      
       triggerDownload(finalBlob, fileName);
 
     } catch (error) {

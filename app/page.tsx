@@ -44,7 +44,7 @@ export default function Home() {
           <OptionCard 
             title="GlitchUp"
             href="/glitch"
-            imageSrc="/glitch.png"
+            imageSrc="/glitch-animation.gif"
             delay={0.2}
           />
           <OptionCard 
@@ -56,8 +56,9 @@ export default function Home() {
           <OptionCard 
             title="LightUp"
             href="/light-up"
-            imageSrc="/light-up.jpg"
+            imageSrc="/light-up.mp4"
             delay={0.6}
+            isVideo
           />
           <OptionCard 
             title="Sticker"
@@ -76,6 +77,14 @@ export default function Home() {
             href="https://catch.porty.app/"
             imageSrc="/dood-token.MP4"
             delay={1.2}
+            isVideo
+            isExternal
+          />
+          <OptionCard 
+            title="doodJump"
+            href="https://jump.porty.app/"
+            imageSrc="/jump.mp4"
+            delay={1.3}
             isVideo
             isExternal
           />

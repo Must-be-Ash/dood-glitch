@@ -80,14 +80,14 @@ export default function Home() {
             isVideo
             isExternal
           />
-          <OptionCard 
+          {/* <OptionCard 
             title="chartJump"
             href="https://jump.porty.app/"
             imageSrc="/jump.mp4"
             delay={1.3}
             isVideo
             isExternal
-          />
+          /> */}
           <OptionCard 
             title="doodJump"
             href="https://doodjump.porty.app/"

@@ -105,6 +105,13 @@ export default function Home() {
             delay={1.4}
             isExternal
           />
+          <OptionCard 
+            title="doodSound"
+            href="https://doodsound.porty.app/"
+            imageSrc="/doodsound.png"
+            delay={1.6}
+            isExternal
+          />
         </motion.div>
       </div>
       <div className="mt-24 sm:mt-12">
